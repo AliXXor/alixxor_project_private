@@ -1,0 +1,37 @@
+<?php
+
+/**
+ * @file
+ * Contains schema for mapping products of Drupal commerce with iDevAffiliate.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function commerce_idev_affiliate_schema() {
+  $schema['idev_affiliate'] = array(
+    'description' => 'Store iDevAffiliate mapping details',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'id',
+      ),
+      'commerce_sku' => array(
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'length' => 128,
+        'description' => 'Product SKU from Drupal commerce.',
+      ),
+      'product_id' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => 'Product id in iDevAffiliate.',
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+  return $schema;
+}

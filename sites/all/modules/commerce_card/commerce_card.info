@@ -1,0 +1,16 @@
+name = Commerce Card
+description = Commerce Card adds credit card image, animates and intuitive user experience to the credit card payment process.
+package = Commerce (contrib)
+
+dependencies[] = commerce_payment
+dependencies[] = libraries
+
+configure = admin/commerce/config/commerce_card
+
+core = 7.x
+; Information added by Drupal.org packaging script on 2016-07-21
+version = "7.x-1.0-beta5"
+core = "7.x"
+project = "commerce_card"
+datestamp = "1469121548"
+

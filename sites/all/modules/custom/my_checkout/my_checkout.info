@@ -1,0 +1,5 @@
+name = My checkout module
+description = My checkout module.
+package = Custom
+core = 7.x
+

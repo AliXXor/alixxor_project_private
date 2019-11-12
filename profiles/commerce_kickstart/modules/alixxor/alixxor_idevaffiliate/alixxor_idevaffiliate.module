@@ -1,0 +1,354 @@
+<?php
+
+
+/**
+ * @file
+ * Handles main functionality for Alixxor iDevAffiliate module.
+ */
+function alixxor_idevaffiliate_init() {
+    if (!empty($_GET['idev_id'])) {
+        if (!session_id()) {
+            session_start();
+        }
+
+        $_SESSION['affiliate_id'] = $_GET['idev_id'];
+    }
+}
+
+/**
+ * Implements hook_commerce_checkout_pane_info().
+ */
+function alixxor_idevaffiliate_commerce_checkout_pane_info() {
+    $checkout_panes = array();
+
+    $checkout_panes['checkout_idevaffiliate_pane'] = array(
+        'title' => '',
+        'name' => t('iDevAffiliate pixel'),
+        'base' => 'alixxor_idevaffiliate_checkout_complete_pane',
+        'review' => FALSE,
+        'page' => 'complete',
+        'fieldset' => FALSE,
+    );
+
+    return $checkout_panes;
+}
+
+/**
+ * Checkout pane callback: returns the settings form elements for the
+ * checkout pane.
+ */
+function alixxor_idevaffiliate_checkout_complete_pane_settings_form($checkout_pane) {
+    $form = array();
+
+    $roles = user_roles(TRUE);
+
+    $form["alixxor_idevaffiliate_profile_id"] = array(
+        '#type' => 'textfield',
+        '#title' => t('iDevAffiliate ProfileID'),
+        '#default_value' => variable_get("alixxor_idevaffiliate_profile_id", 0),
+    );
+    
+    foreach (range(1, 4) as $lvl) {
+        $form["alixxor_idevaffiliate_role_level_$lvl"] = array(
+            '#type' => 'select',
+            '#title' => t('Role for Affiliate lvl @lvl', array('@lvl' => $lvl)),
+            '#options' => $roles,
+            '#default_value' => variable_get("alixxor_idevaffiliate_role_level_$lvl", 0),
+        );
+    }
+
+    return $form;
+}
+
+/**
+ * Callback for checkout complete page with information for iDevAffiliate Software
+ * 
+ * @param type $form
+ * @param type $form_state
+ * @param type $checkout_pane
+ * @param type $order
+ * @return string
+ */
+function alixxor_idevaffiliate_checkout_complete_pane_checkout_form($form, &$form_state, $checkout_pane, $order) {
+
+
+    //Checking if user is affiliater
+    global $user;
+
+
+    $self_affiliate_id = 0;
+    if (!empty($user->mail)) {
+        $self_affiliate_id = _alixxor_idevaffiliate_id_by_email($user->mail);
+    }
+    //$self_affiliate_id = 100;
+    //If user is affiliater
+
+    if ($self_affiliate_id) {
+        $query['profile'] = variable_get("alixxor_idevaffiliate_profile_id", 0);
+        $query['idev_saleamt'] = alixxor_idevaffiliate_get_order_subtotal($order);
+        $query['idev_ordernum'] = $order->order_number;
+        $query['affiliate_id'] = $self_affiliate_id;
+        $query['idev_commission'] = 0.01;
+        $track_url = url('idevaffiliate/sale.php', array('query' => $query));
+        $idev_image = "<img border='0' src='$track_url' width='1' height='1' />";
+    } else {
+        //Checking if user has affiliate ID in session
+        $affiliate_id = _alixxor_affiliate_id();
+        $affiliate_lvl = _alixxor_idevaffiliate_level_by_aid($affiliate_id);
+        if (!$affiliate_id || !$affiliate_lvl) {
+            //Dont need idevaffiliate pixel image
+            $idev_image = '';
+        } else {
+            //Calculationg commission in the USD
+            $total_commission = array(
+                'amount' => 0,
+                'currency_code' => 'USD',
+            );
+
+            foreach ($order->commerce_line_items[LANGUAGE_NONE] as $line) {
+                $line_item = commerce_line_item_load($line['line_item_id']);
+                if ($line_item->type == 'product') {
+                    $product_id = $line_item->commerce_product[LANGUAGE_NONE][0]['product_id'];
+                    $product_qty = $line_item->quantity;
+                    $product = commerce_product_load($product_id);
+		    $product_display_id = _get_display_node_by_product_id($product);
+		    $node_obj = node_load($product_display_id);
+		    if($node_obj->field_product_category['und'][0]['tid'] == 1 || $node_obj->field_product_category['und'][0]['tid'] == 2){
+		      $order->field_affiliate_id['und'][0]['value'] = $affiliate_id;
+		      commerce_order_save($order);
+		      if($node_obj->field_product_category['und'][0]['tid'] == 1){
+		        $total_deluxe = _get_total_number_of_deluxe_or_basic_unit_by_affiliate_id($affiliate_id, $node_obj->field_product_category['und'][0]['tid']);
+			if($total_deluxe < 4){
+			  $commission = 30000;
+			}elseif($total_deluxe < 7){
+			  $commission = 45000;
+			}elseif($total_deluxe < 10){
+			  $commission = 60000;
+			}elseif($total_deluxe > 9){
+			  $commission = 75000;
+			}
+		      }elseif($node_obj->field_product_category['und'][0]['tid'] == 2){
+		        $total_basic = _get_total_number_of_deluxe_or_basic_unit_by_affiliate_id($affiliate_id, $node_obj->field_product_category['und'][0]['tid']);
+			if($total_basic < 4){
+			  $commission = 25000;
+			}elseif($total_basic < 7){
+			  $commission = 35000;
+			}elseif($total_basic < 10){
+			  $commission = 45000;
+			}elseif($total_basic > 9){
+			  $commission = 55000;
+			}
+		      }
+		    }
+
+                    $total_commission['amount'] += commerce_currency_convert(
+                      $commission, 'USD', $total_commission['currency_code']
+                    );
+                }
+            }
+
+            $query['profile'] = variable_get("alixxor_idevaffiliate_profile_id", 0);
+            $query['idev_saleamt'] = alixxor_idevaffiliate_get_order_subtotal($order);
+            $query['idev_ordernum'] = $order->order_number;
+            $query['affiliate_id'] = $affiliate_id;
+            $query['idev_commission'] = commerce_currency_amount_to_decimal($total_commission['amount'], $total_commission['currency_code']);
+            $track_url = url('idevaffiliate/sale.php', array('query' => $query));
+            $idev_image = "<img border='0' src='$track_url' width='1' height='1' />";
+        }
+    }
+
+    $pane_form['message'] = array(
+        '#markup' => $idev_image,
+    );
+    
+    _alixxor_affiliate_remove_id();
+
+    return $pane_form;
+}
+
+function alixxor_idevaffiliate_get_order_subtotal($order) {
+    $subtotal = commerce_price_component_total($order->commerce_order_total[LANGUAGE_NONE][0], 'base_price');
+    $subtotal['amount'] = commerce_currency_convert($subtotal['amount'], $subtotal['currency_code'], 'USD');
+    
+    return commerce_currency_amount_to_decimal($subtotal['amount'], $subtotal['currency_code']);
+}
+
+/**
+ * Implementation of hook_users_load()
+ * 
+ * Loads affiliate level and adds drupal role
+ * 
+ * @param type $users
+ */
+function alixxor_idevaffilaite_user_load($users) {
+    $idev_roles = _alixxor_idevaffiliate_level_roles();
+
+    foreach ($users as $user) {
+        $lvl = _alixxor_idevaffiliate_level_by_email($user->mail);
+        $roles = $user->roles;
+        if (!key_exists($idev_roles[$lvl], $roles)) {
+            foreach ($roles as $rid => $role_name) {
+                if (in_array($rid, $idev_roles)) {
+                    unset($roles[$rid]);
+                }
+            }
+            if ($lvl) {
+                $roles[$idev_roles[$lvl]] = "affilaite $lvl";
+            }
+        }
+        $user->original = clone $user;
+        user_save($user, array('roles' => $roles));
+    }
+}
+
+/**
+ * Returns assoc massive of roles for iDevAffiliates levels
+ * 
+ * @return array
+ */
+function _alixxor_idevaffiliate_level_roles() {
+    $roles = array(0 => 0);
+
+    foreach (range(1, 4) as $lvl) {
+        $roles[$lvl] = variable_get("alixxor_idevaffiliate_role_level_$lvl", 0);
+    }
+
+    return $roles;
+}
+
+/**
+ * Gets affiliate info for Drupal user from iDevAffiliate database by email
+ * 
+ * @param string $email
+ * @return int
+ */
+function _alixxor_idevaffiliate_level_by_email($email) {
+    db_set_active('alixxorc_d7_idevaffiliate');
+    $lvl = db_select('idevaff_affiliates', 'ia')
+            ->fields('ia', array('level'))
+            ->condition('ia.email', $email)
+            ->condition('ia.approved', 1)
+            ->condition('ia.suspended', 0)
+            ->execute()
+            ->fetchField();
+	    db_set_active();
+    if (!$lvl) {
+        $lvl = 0;
+    }
+    return $lvl;
+}
+
+/**
+ * Gets affiliate info for Drupal user from iDevAffiliate database by affiliate ID
+ * 
+ * @param int $aid
+ * @return int
+ */
+function _alixxor_idevaffiliate_level_by_aid($aid) {
+    db_set_active('alixxorc_d7_idevaffiliate');
+    $lvl = db_select('idevaff_affiliates', 'ia')
+            ->fields('ia', array('level'))
+            ->condition('ia.id', $aid)
+            ->condition('ia.approved', 1)
+            ->condition('ia.suspended', 0)
+            ->execute()
+            ->fetchField();
+	    db_set_active();
+    if (!$lvl) {
+        $lvl = 0;
+    }
+    return $lvl;
+}
+
+/**
+ * Gets affiliate info for Drupal user from iDevAffiliate database by email
+ * 
+ * @param string $email
+ * @return int
+ */
+function _alixxor_idevaffiliate_id_by_email($email) {
+    db_set_active('alixxorc_d7_idevaffiliate');
+    $id = db_select('idevaff_affiliates', 'ia')
+            ->fields('ia', array('id'))
+            ->condition('ia.email', $email)
+            ->condition('ia.approved', 1)
+            ->condition('ia.suspended', 0)
+            ->execute()
+            ->fetchField();
+	    db_set_active();
+    if (!$id) {
+        $id = 0;
+    }
+    return $id;
+}
+
+/**
+ * Returns affiliate id
+ */
+function _alixxor_affiliate_id() {
+    if (!empty($_SESSION['affiliate_id'])) {
+        return (int) $_SESSION['affiliate_id'];
+    }
+
+    return 0;
+}
+
+function _alixxor_affiliate_remove_id() {
+    if (!empty($_SESSION['affiliate_id'])) {
+        $_SESSION['affiliate_id'] = null;
+    }
+}
+
+/**
+ * Helper functions to return node ID based on commerce product.
+ */
+function _get_display_node_by_product_id($product) {
+    // Itterate through all fields which refer to commerce products.
+    foreach (commerce_info_fields('commerce_product_reference') as $field) {
+        // Build query.
+        $query = new EntityFieldQuery;
+        $query->entityCondition('entity_type', 'node', '=')
+            ->fieldCondition($field['field_name'], 'product_id', $product->product_id, '=')
+            ->range(0, 1);
+
+        if ($result = $query->execute()) {
+            // Return node id.
+            $inter= array_keys($result['node']);
+            return array_shift($inter);
+            //return array_shift(array_keys($result['node']));
+        }
+    }
+    return false;
+}
+
+/**
+ * Helper functions to return total number of order by affiliate id.
+ */
+function _get_total_number_of_deluxe_or_basic_unit_by_affiliate_id($affiliate_id, $tid) {
+  $query = db_select('commerce_order', 'co');
+  $query->innerJoin('field_data_field_affiliate_id', 'ai', 'ai.entity_id = co.order_id');
+  //$query->condition('co.status', 'completed', '=');
+  $query->condition('ai.field_affiliate_id_value', $affiliate_id, '=');
+  $query->fields('co',array('order_id'));
+  $result = $query->execute();
+
+  $count = 0;
+
+  foreach($result as $value){
+    $order_obj = commerce_order_load($value->order_id);
+    foreach ($order_obj->commerce_line_items[LANGUAGE_NONE] as $line) {
+      $line_item = commerce_line_item_load($line['line_item_id']);
+      if ($line_item->type == 'product') {
+        $product_id = $line_item->commerce_product[LANGUAGE_NONE][0]['product_id'];
+        $product_qty = $line_item->quantity;
+        $product = commerce_product_load($product_id);
+        $product_display_id = _get_display_node_by_product_id($product);
+        $node_obj = node_load($product_display_id);
+        if($node_obj->field_product_category['und'][0]['tid'] == $tid){
+          $count+=$product_qty;
+        }
+      }
+    }
+  }
+  return $count;
+}

@@ -1,0 +1,65 @@
+<?php
+
+function ship_schema()
+{
+    $schema['ship_items'] = array(
+        'fields' => array(
+            'id' => array(
+                'description' => 'Item ID',
+                'type' => 'serial',
+                'unsigned' => true,
+                'not null' => true,
+            ),
+            'name' => array(
+                'description' => 'Name item',
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => true,
+                'default' => '',  
+            ),
+            'method' => array(
+                'description' => 'Shipping method',
+                'type' => 'char',
+                'length' => 2,
+                'not null' => true,
+                'default' => '',
+            ),
+            'shipping_NZ' => array(
+                'description' => 'Shipping to New Zealand',
+                'type' => 'float',
+                'precision' => 16,
+                'scale' => 2,
+                'not null' => true,
+                'default' => 0.0,
+            ),
+            'shipping_AUS' => array(
+                'description' => 'Shipping to Australia',
+                'type' => 'float',
+                'precision' => 16,
+                'scale' => 2,
+                'not null' => true,
+                'default' => 0.0,
+            ),
+            'shipping_EA_NA_UC_EUR_SP' => array(
+                'description' => 'Shipping to New East Asia, North America, United Kingdom, Europe and South Pacific',
+                'type' => 'float',
+                'precision' => 16,
+                'scale' => 2,
+                'not null' => true,
+                'default' => 0.0,
+            ),
+            'shipping_RW' => array(
+                'description' => 'Shipping to rest of the world',
+                'type' => 'float',
+                'precision' => 16,
+                'scale' => 2,
+                'not null' => true,
+                'default' => 0.0,
+            ),
+        ),
+        'primary key' => array('id'),
+    );
+ 
+    return $schema;
+}
+ 

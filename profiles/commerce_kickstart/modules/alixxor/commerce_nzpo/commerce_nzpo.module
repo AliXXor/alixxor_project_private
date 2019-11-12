@@ -1,0 +1,334 @@
+<?php
+
+/**
+ * @file
+ * Handles main functionality for NZ Post Office Shipping module.
+ */
+
+define('SHIPPING_METHOD_NZPO', 'nzpo');
+define('NZPO_SHIPPING_SERVICE_STANDART', 'nzpo_standart');
+define('NZPO_SHIPPING_SERVICE_PRIORITY', 'nzpo_priority');
+define('ALIXXOR_BASIC_UNIT_PRODUCT_ID', 3);
+define('ALIXXOR_DELUXE_UNIT_PRODUCT_ID', 6);
+
+function commerce_nzpo_menu() {
+  $items = array();
+
+  $items['admin/commerce/config/shipping/nzpo_rates'] = array(
+    'title' => 'Shipping Rates for NZ Post Office',
+    'description' => 'Configure shipping rates for the NZ PO.',
+    'page callback' => 'commerce_nzpo_rates_standart_page',
+    'access arguments' => array('administer shipping'),
+    'file' => 'commerce_nzpo.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 15,
+    'menu_name' => 'management'
+  );
+  
+  $items['admin/commerce/config/shipping/nzpo_rates/standart'] = array(
+    'title' => 'Standart Shipping',
+    'page callback' => 'commerce_nzpo_rates_standart_page',
+    'access arguments' => array('administer shipping'),
+    'file' => 'commerce_nzpo.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE,
+    'weight' => 0,
+  );
+  
+  $items['admin/commerce/config/shipping/nzpo_rates/priority'] = array(
+    'title' => 'Priority Shipping',
+    'page callback' => 'commerce_nzpo_rates_priority_page',
+    'access arguments' => array('administer shipping'),
+    'file' => 'commerce_nzpo.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE,
+    'weight' => 1,
+  );
+  
+  $items['admin/commerce/config/shipping/nzpo_rates/delete/%'] = array(
+    'page callback' => 'commerce_nzpo_delete_rate',
+    'page arguments' => array(6),
+    'access arguments' => array('administer shipping'),
+    'file' => 'commerce_nzpo.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function commerce_nzpo_form_alter(&$form, &$form_state, $form_id) {
+    
+}
+
+/**
+ * Implements hook_commerce_shipping_method_info().
+ */
+function commerce_nzpo_commerce_shipping_method_info() {
+  $shipping_methods = array();
+
+  $shipping_methods['nzpo'] = array(
+    'title' => t('NZ Post Office'),
+    'description' => t('Rates from New Zealand Post Office'),
+  );
+
+  return $shipping_methods;
+}
+
+/**
+ * Implements hook_commerce_shipping_service_info().
+ */
+function commerce_nzpo_commerce_shipping_service_info() {
+  $shipping_services = array();
+
+  $shipping_services[NZPO_SHIPPING_SERVICE_STANDART] = array(
+    'title' => t('Standart shipping'),
+    'description' => t('Standard airmail/courier, 6-10 days'),
+    'shipping_method' => SHIPPING_METHOD_NZPO,
+    'price_component' => 'shipping',
+    'callbacks' => array(
+      'rate' => 'commerce_nzpo_service_rate_order',
+    )
+  );
+  $shipping_services[NZPO_SHIPPING_SERVICE_PRIORITY] = array(
+    'title' => t('Priority shipping'),
+    'description' => t('Priority shipping, 4-6 days'),
+    'shipping_method' => SHIPPING_METHOD_NZPO,
+    'price_component' => 'shipping',
+    'callbacks' => array(
+      'rate' => 'commerce_nzpo_service_rate_order',
+    )
+  );
+
+  return $shipping_services;
+}
+
+function commerce_nzpo_commerce_shipping_service_rate_options_alter(&$options, $order) {
+//    if (isset($options[NZPO_SHIPPING_SERVICE_STANDART])) {
+//        $options[NZPO_SHIPPING_SERVICE_STANDART] .= '<br/><div>description</div>';
+//    }
+}
+
+/**
+ * Shipping service callback: returns a base price array for a shipping service
+ * calculated for the given order.
+ */
+function commerce_nzpo_service_rate_order($shipping_service, $order) {
+  // First attempt to recover cached shipping rates for the current order.
+  $rates = commerce_shipping_rates_cache_get(SHIPPING_METHOD_NZPO, $order);
+  // If no rates were recovered from the cache or the cached rates are over one minute old...
+  if (!$rates) {
+    $rates = array();
+    
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+    
+    $shipping = $order_wrapper->commerce_customer_shipping->commerce_customer_address->value();
+    $country_iso_code_2 = $shipping['country'];
+    $shipping_zone = commerce_nzpo_get_shipping_zone_by_iso2($country_iso_code_2);
+
+    $rates[NZPO_SHIPPING_SERVICE_STANDART] = array(
+      'amount' => commerce_nzpo_calculate_standart_shipping_rate($order, $shipping_zone),
+      'currency_code' => 'USD',
+      'data' => array(),
+    );
+    
+    $priority_shipping = commerce_nzpo_calculate_priority_shipping_rate($order, $shipping_zone);
+    if ($priority_shipping !== FALSE) {
+        $rates[NZPO_SHIPPING_SERVICE_PRIORITY] = array(
+          'amount' => $priority_shipping,
+          'currency_code' => 'USD',
+          'data' => array(),
+        );
+    }
+    
+    commerce_shipping_rates_cache_set(SHIPPING_METHOD_NZPO, $order, $rates);
+    
+  }
+
+  // Return the rate for the requested service or FALSE if not found.
+  return isset($rates[$shipping_service['name']]) ? $rates[$shipping_service['name']] : FALSE;
+}
+
+/**
+ * Calculates shipping cost for standart service
+ * 
+ * @param order $order
+ * @param text $country ISO2 country code
+ */
+function commerce_nzpo_calculate_standart_shipping_rate($order, $shipping_zone) {
+    $total_shipping = 0;
+    
+    //Flag if order contains Alixxor Basic or Deluxe unit
+    $order_has_unit = FALSE;
+    
+    $shipping_units = array();
+    $shipping_acessories_max_rate = 0;
+    $shipping_acessories_max_rate_pid = 0;
+    $shipping_acessories[0] = 0;
+    
+    foreach ($order->commerce_line_items[LANGUAGE_NONE] as $line) {
+        $line_item = commerce_line_item_load($line['line_item_id']);
+        if ($line_item->type == 'product') {
+            $product_id = $line_item->commerce_product[LANGUAGE_NONE][0]['product_id'];
+            $product_qty = $line_item->quantity;
+            $product_shipping_rates = commerce_nzpo_get_product_shipping_rates($product_id, $shipping_zone);
+
+            if ( _alixxor_product_is_unit($product_id) ) {
+                $order_has_unit = true;
+                $shipping_units[$product_id] = array(
+                    'base' => $product_shipping_rates['base'],
+                    'addon' => $product_shipping_rates['addon'],
+                    'qty' => $product_qty,
+                );
+            } else {
+                $shipping_acessories[$product_id] = array(
+                    'base' => $product_shipping_rates['base'],
+                    'addon' => $product_shipping_rates['addon'],
+                    'qty' => $product_qty,
+                );
+
+                if ($shipping_acessories[$product_id]['base'] > $shipping_acessories_max_rate) {
+                    $shipping_acessories_max_rate = $shipping_acessories[$product_id]['base'];
+                    $shipping_acessories_max_rate_pid = $product_id;
+                }
+            }
+        }
+    }
+    
+    if ($order_has_unit) {
+        foreach ($shipping_units as $rate) {
+            $total_shipping += $rate['base'] * $rate['qty'];
+        }
+        foreach ($shipping_acessories as $rate) {
+            $total_shipping += $rate['addon'] * $rate['qty'];
+        }
+    } else {
+        $max_rate = $shipping_acessories[$shipping_acessories_max_rate_pid];
+        $total_shipping += $max_rate['base'] * 1 + $max_rate['addon'] * ( $max_rate['qty'] - 1 );
+        unset($shipping_acessories[$shipping_acessories_max_rate_pid]);
+        foreach ($shipping_acessories as $rate) {
+            $total_shipping += $rate['addon'] * $rate['qty'];
+        }
+    }
+
+    return $total_shipping;
+}
+
+/**
+ * Calculates shipping cost for priority service
+ * 
+ * @param order $order
+ */
+function commerce_nzpo_calculate_priority_shipping_rate($order, $shipping_zone) {
+    $total_shipping = 0;
+    
+    //Flag if order contains Alixxor Basic or Deluxe unit
+    $order_has_unit = FALSE;
+    
+    $shipping_units = $shipping_acessories = array();
+    $shipping_acessories_max_rate = 0;
+    $shipping_acessories_max_rate_pid = 0;
+    
+    foreach ($order->commerce_line_items[LANGUAGE_NONE] as $line) {
+        $line_item = commerce_line_item_load($line['line_item_id']);
+        
+        if ($line_item->type == 'product') {
+            $product_id = $line_item->commerce_product[LANGUAGE_NONE][0]['product_id'];
+            $product_qty = $line_item->quantity;
+
+            $product_shipping_rates = commerce_nzpo_get_product_shipping_rates($product_id, $shipping_zone, TRUE);
+
+            if ( _alixxor_product_is_unit($product_id) ) {
+                $order_has_unit = TRUE;
+                $shipping_units[$product_id] = array(
+                    'base' => $product_shipping_rates['base'],
+                    'addon' => $product_shipping_rates['addon'],
+                    'qty' => $product_qty,
+                );
+            } else {
+                $shipping_acessories[$product_id] = array(
+                    'base' => $product_shipping_rates['base'],
+                    'addon' => $product_shipping_rates['addon'],
+                    'qty' => $product_qty,
+                );
+
+                if ($shipping_acessories[$product_id]['base'] > $shipping_acessories_max_rate) {
+                    $shipping_acessories_max_rate = $shipping_acessories[$product_id]['base'];
+                    $shipping_acessories_max_rate_pid = $product_id;
+                }
+            }
+        }
+    }
+    
+    if (!$order_has_unit) {
+        //disable Priority method if order doesnt contain Units
+        return FALSE;
+        
+    } 
+    
+    foreach ($shipping_units as $rate) {
+        $total_shipping += $rate['base'] * $rate['qty'];
+    }
+    foreach ($shipping_acessories as $rate) {
+        $total_shipping += $rate['addon'] * $rate['qty'];
+    }
+
+    return $total_shipping;
+}
+
+/**
+ * 
+ * @param integer $product_id
+ * @param text $shipping_zone shipping zone
+ * @param boolean $priority
+ */
+function commerce_nzpo_get_product_shipping_rates($product_id, $shipping_zone, $priority = FALSE) {
+    $priority = $priority ? 1 : 0;
+    $order = $priority ? 'DESC' : 'ASC';
+    $rate = db_select('commerce_nzpo_shipping_rates', 'sr')
+        ->fields('sr', array($shipping_zone, 'shipping_addon_pct'))
+        ->condition('product_id', $product_id)
+        ->orderBy('priority', $order)
+        ->execute()
+        ->fetchObject();
+    
+    if (!is_object($rate)) {
+        return FALSE;
+    }
+    
+    $rates['base'] = $rate->$shipping_zone;
+    $rates['addon'] = commerce_round(COMMERCE_ROUND_HALF_UP, $rate->$shipping_zone * $rate->shipping_addon_pct / 100);
+
+    return  $rates;
+}
+
+/**
+ * Gets shipping zone for specified country
+ * 
+ * @param text $country_iso_code_2
+ */
+function commerce_nzpo_get_shipping_zone_by_iso2($country_iso_code_2) {
+    $ship_zone = db_select('commerce_nzpo_shipping_zones', 'sz')
+        ->fields('sz', array('shipping_zone'))
+        ->condition('country_iso_code_2', $country_iso_code_2)
+        ->execute()
+        ->fetchField();
+    
+    return $ship_zone;
+}
+
+/**
+ * Returns TRUE if product is AliXXor Unit
+ * 
+ * @param product $product
+ * @return boolean
+ */
+function _alixxor_product_is_unit($product_id) {
+    static $values;
+    
+    if (!isset($values[$product_id])) {
+        $product = commerce_product_load($product_id);
+        $values[$product_id] = isset($product->field_is_unit[LANGUAGE_NONE]) && $product->field_is_unit[LANGUAGE_NONE][0]['value'];
+    }
+
+    return $values[$product_id];
+}

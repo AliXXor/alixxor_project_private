@@ -1,0 +1,145 @@
+<?php
+/*
+* Implementation of hook_menu
+*/
+function commerce_card_menu() {    
+  $items['admin/commerce/config/commerce_card'] = array(
+          'title' => t('Commerce Card'),
+          'description' => t('Configure the Drupal Commerce Card settings..'),
+          'file' => 'commerce_card.admin.inc',
+          'page callback' => 'drupal_get_form',
+          'page arguments' => array('commerce_card_admin_form'),          
+          'access arguments' => array('administer payments'),
+    );                
+    return $items;
+} 
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_card_form_alter(&$form, &$form_state, $form_id) {    
+    if (strstr($form_id, 'commerce_checkout_')){      
+       if (isset($form['commerce_payment']['payment_details']['credit_card'])){
+             $settings = array();
+         
+             // Are billing info and payment panes on the same checkout page?
+             $panes = commerce_checkout_panes(array('enabled' => TRUE));
+             $billing_pane_page = $panes['customer_profile_billing']['page'];
+             $payment_pane_page = $panes['commerce_payment']['page'];
+             
+             //Which checkout page is the payment pane on?
+             $form_name = 'form#commerce-checkout-form-' . $payment_pane_page;
+             $settings['form_name'] = $form_name;
+            
+             // Is the customer name one field or two fields?
+             $field_instance = field_info_instance('commerce_customer_profile', 'commerce_customer_address', 'billing');
+             $field_settings = $field_instance['widget']['settings']['format_handlers'];
+             
+             if (isset($field_settings['name-oneline']) && $field_settings['name-oneline'] === 0){
+                $settings['name_field'] = 0;
+             }else{
+                $settings['name_field'] = 1;
+             }
+             
+             $settings['same_page'] = ($billing_pane_page == $payment_pane_page) ? TRUE : FALSE;
+             $settings['name_placeholder']  = variable_get('commerce_card_name_placeholder_text', 'Your Name');
+             $settings['width']  = variable_get('commerce_card_width', 'Your Name');
+             
+             if (variable_get('commerce_card_display_message_status', 0)){
+                $settings['custom_message'] = t(variable_get('commerce_card_display_message_text', ''));
+             }else{
+                $settings['custom_message'] = FALSE;
+             }
+             
+             $settings['position'] =  variable_get('commerce_card_position', 0);
+             
+             if (variable_get('commerce_card_year_type', 0)){
+                $settings['month_year'] =  'mm/yyyy';
+                $settings['expiry'] =  '&#9679;&#9679;/&#9679;&#9679;&#9679;&#9679;';  
+              $expiration_placeholder = 'MM/YYYY';
+             }else{
+                $settings['month_year'] =  'mm/yy'; 
+                $settings['expiry'] =  '&#9679;&#9679;/&#9679;&#9679;';
+                $expiration_placeholder = 'MM/YY';
+             }
+                          
+             $settings['debug'] = variable_get('commerce_card_debug', 0);
+             
+             $library = libraries_load('card');
+             $module_path = drupal_get_path('module', 'commerce_card');             
+             
+             $script = '/' . $library['library path'] . '/card.js';
+             
+             drupal_add_js($script, array(
+                'type' => 'file',
+                'scope' => 'header',                
+                'group' => JS_THEME,
+                'every_page' => FALSE,                
+                'preprocess' => FALSE,                
+                'weight' => 100,
+             ));
+                          
+             $form['#attached']['css'][] = $module_path . '/css/commerce_card.css';
+             
+             $card_js = $module_path . '/js/commerce_card.js';
+             $script = '/' . $card_js;
+             drupal_add_js($script, array(
+                'type' => 'file',
+                'scope' => 'footer',                
+                'group' => JS_THEME,
+                'every_page' => FALSE,                
+                'preprocess' => FALSE,                
+                'weight' => 250,
+             ));
+              
+             // Is the owner name field on the credit card form?
+             if (isset($form['commerce_payment']['payment_details']['credit_card']['owner'])){
+                $owner_placeholder = $form['commerce_payment']['payment_details']['credit_card']['owner']['#title'];
+                $form['commerce_payment']['payment_details']['credit_card']['owner']['#attributes'] = array('placeholder' => $owner_placeholder);
+                $settings['owner'] = TRUE;
+             }else{
+                $settings['owner'] = FALSE;
+             }
+
+             drupal_add_js(array('commerce_card' => $settings), 'setting');
+             $form['commerce_payment']['payment_details']['credit_card']['owner']['#weight'] = -2;
+             $form['commerce_payment']['payment_details']['credit_card']['exp_month']['#suffix'] = '';             
+             $form['commerce_payment']['payment_details']['credit_card']['number']["#weight"] = -1;
+             $form['commerce_payment']['payment_details']['credit_card']['number']["#maxlength"] = 22; // Increase max length to handle spaces in number
+             $form['commerce_payment']['payment_details']['credit_card']['number']['#attributes'] = array('placeholder' => t('Card Number'));             
+             $form['commerce_payment']['payment_details']['credit_card']['code']['#attributes'] = array('placeholder' => t('CVV'));
+             $form['commerce_payment']['payment_details']['credit_card']['code']['#weight'] = 0;                                               
+        }       
+    }
+}
+
+
+/**
+ * Implements hook_libraries_info().
+ */
+function commerce_card_libraries_info() {
+  $libraries = array();
+  $libraries['card'] = array(
+    'name' => 'Card',
+    'vendor url' => 'https://github.com/jessepollak/card',
+    'download url' => 'https://github.com/jessepollak/card/archive/master.zip',        
+    'files' => array(
+      'js' => array(
+        'card.js',
+      ),     
+    ),
+    'version callback' => 'commerce_card_check_version',    
+  ); 
+  return $libraries;
+}
+
+/**
+* Short-circuit the version argument.
+*/
+function commerce_card_check_version() {
+  $library = libraries_load('card'); 
+  if (file_exists($library['library path'] . '/card.js')) {
+    return 'Exists';
+  }
+  return FALSE;
+}

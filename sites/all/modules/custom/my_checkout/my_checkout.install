@@ -1,0 +1,117 @@
+<?php
+
+/**
+ * Implements hook_schema.
+ */
+function my_checkout_schema() {
+  $schema = array(
+    'service_availability' => array(
+      'fields' => array(
+        'country_code' => array(
+          'type' => 'varchar',
+          'length' => 3,
+          'not null' => TRUE,
+        ),
+        'courier' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'default' => '',
+        ),
+        'airmail' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'default' => '',
+        ),
+        'notes' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'default' => '',
+        )
+      )
+    )
+  );
+  return $schema;
+}
+
+function my_checkout_default_service_availability() {
+  return array(
+    array('country_code' => 'CK', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'FJ', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'WS', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'TO', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'VU', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'KH', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'CN', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'HK', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'ID', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'JP', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'MO', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'MY', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'PH', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'KR', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'SG', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'TW', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'TH', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'VN', 'courier' => '4-6 days', 'notes' => ''),
+    array('country_code' => 'AT', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'BE', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'CA', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'HR', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'CZ', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'DK', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'FI', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'FR', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'DE', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'GR', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'HU', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'IE', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'IT', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'NL', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'NO', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'PL', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'PT', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'RO', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'SI', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'ES', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'SE', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'CH', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'GB', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'US', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'BR', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'CL', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'CR', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'EC', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'SV', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'IN', 'courier' => '5-6 days', 'notes' => 'Please note that International Courier service is only available to major cities in India'),
+    array('country_code' => 'MX', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'LK', 'courier' => '5-6 days', 'notes' => ''),
+    array('country_code' => 'UY', 'courier' => '5-6 days', 'notes' => ''),
+  );
+}
+
+function my_checkout_install() {
+  $query = db_insert('service_availability')->fields(array(
+    'country_code',
+    'courier',
+    'notes',
+  ));
+  $data = my_checkout_default_service_availability();
+  foreach($data as $row) {
+    $query->values($row);
+  }
+  $query->execute();
+}
+
+function my_checkout_update_7001() {
+  drupal_install_schema('my_checkout');
+  $query = db_insert('service_availability')->fields(array(
+    'country_code',
+    'courier',
+    'notes',
+  ));
+  $data = my_checkout_default_service_availability();
+  foreach($data as $row) {
+    $query->values($row);
+  }
+  $query->execute();
+}

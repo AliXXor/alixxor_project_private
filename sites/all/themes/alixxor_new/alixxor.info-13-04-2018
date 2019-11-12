@@ -1,0 +1,65 @@
+name = 'Alixxor New'
+description = Uses the Bootstrap Framework Less source files and must be compiled (not for beginners).
+core = 7.x
+base theme = bootstrap
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Regions
+;;;;;;;;;;;;;;;;;;;;;
+
+
+regions[header] 			= 'Header'
+regions[header_bottom] 		= 'Header Bottom'
+regions[menu] 				= 'Menu'
+regions[user_menu] 			= 'User Menu'
+regions[help] 				= 'Help'
+
+regions[content] 			= 'Content'
+regions[content_bottom] 	= 'Content bottom'
+
+regions[sidebar_first] 		= 'Sidebar first'
+regions[sidebar_second] 	= 'Sidebar second'
+
+regions[footer] 			= 'Footer'
+
+regions[page_top] 			= 'Page top'
+regions[page_bottom] 		= 'Page bottom'
+regions[highlighted] 		= 'Highlighted'
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Stylesheets
+;;;;;;;;;;;;;;;;;;;;;
+
+stylesheets[all][] = css/style.css
+stylesheets[all][] = css/boilerplate.css
+stylesheets[all][] = css/less-style.css
+stylesheets[all][] = css/maintenance-page.css
+stylesheets[all][] = css/tablet.css
+stylesheets[all][] = css/mobile.css
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Scripts
+;;;;;;;;;;;;;;;;;;;;;
+
+scripts[] = 'bootstrap/js/affix.js'
+scripts[] = 'bootstrap/js/alert.js'
+scripts[] = 'bootstrap/js/button.js'
+scripts[] = 'bootstrap/js/carousel.js'
+scripts[] = 'bootstrap/js/collapse.js'
+scripts[] = 'bootstrap/js/dropdown.js'
+scripts[] = 'bootstrap/js/modal.js'
+scripts[] = 'bootstrap/js/tooltip.js'
+scripts[] = 'bootstrap/js/popover.js'
+scripts[] = 'bootstrap/js/scrollspy.js'
+scripts[] = 'bootstrap/js/tab.js'
+scripts[] = 'bootstrap/js/transition.js'
+
+scripts[] = 'js/modernizr-1.6.min.js'
+scripts[] = 'js/jquery.loader.js'
+scripts[] = 'js/html5.js'
+scripts[] = 'js/theme700.core.js'
+
+; Disable the CDN provider so compiled source files can be used.
+settings[bootstrap_cdn] = ''

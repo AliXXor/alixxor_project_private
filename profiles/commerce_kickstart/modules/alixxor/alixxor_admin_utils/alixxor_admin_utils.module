@@ -1,0 +1,56 @@
+<?php
+
+function alixxor_admin_utils_menu() {
+    $items = array();
+
+    $items['admin/commerce/orders/create_for_user'] = array(
+        'title' => 'Create Order',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('alixxor_admin_create_order_form'),
+        'access arguments' => array('administer content'),
+        'type' => MENU_LOCAL_TASK,
+    );
+
+    return $items;
+}
+
+function alixxor_admin_create_order_form($form, &$form_state) {
+    //dpm(_user_list_assoc());
+    
+    $form['username'] = array(
+        '#type' => 'textfield',
+        '#title' => 'Username',
+        '#autocomplete_path' => 'user/autocomplete',
+        '#description' => t("Field has autocomplete function"),
+    );
+    
+    $form['create'] = array(
+        '#type' => 'submit',
+        '#value' => t('Create order'),
+    );
+    
+    return $form;
+}
+
+function alixxor_admin_create_order_form_validate($form, &$form_state) {
+    $username = $form_state['values']['username'];
+    
+    $user = user_load_by_name($username);
+    if (!$user) {
+        form_set_error('uid', t('Invalid username'));
+    }
+}
+
+function alixxor_admin_create_order_form_submit($form, &$form_state) {
+    $username = $form_state['values']['username'];
+    $user = user_load_by_name($username);
+    if ($user->uid) {
+        $order = commerce_order_new($user->uid);
+        commerce_order_save($order);
+        drupal_set_message('Order created');
+        drupal_goto("admin/commerce/orders/{$order->order_id}/edit");
+        
+    }
+}
+
+

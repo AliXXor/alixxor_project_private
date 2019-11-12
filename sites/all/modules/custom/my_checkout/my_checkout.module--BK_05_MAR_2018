@@ -1,0 +1,286 @@
+<?php
+/**
+ * Implements hook_commerce_checkout_pane_info()
+ */
+function my_checkout_commerce_checkout_pane_info() {
+  $panes['my_checkout'] = array(
+    'title' => t('Shipping method'),
+    'page' => 'checkout',
+    'weight' => -20,
+    'base' => 'my_checkout_pane',
+  );
+  return $panes;
+}
+/**
+ * Implements base_checkout_form()
+ */
+function my_checkout_pane_checkout_form($form, $form_state, $checkout_pane, $order) {
+  $checkout_form['my_module_pane_field2'] = array(
+    '#type' => 'radios',
+    '#title' => t('Please select shipping method:'),
+    '#description' => '',
+    '#options' => array('standard_shipping' => 'Standard airmail/courier, 6-10 days','priority_shipping' =>'Priority shipping, 4-6 days'),
+    '#default_value' => isset($order->field_shipping_method['und'])?$order->field_shipping_method['und'][0]['value']:'standard_shipping',
+    '#required' => TRUE,
+  );
+  return $checkout_form;
+}
+/**
+ * Implements hook_pane_checkout_form_validate().
+ */
+function my_checkout_pane_checkout_form_validate($form, &$form_state, $checkout_pane, $order) {
+  if(empty($form_state['values']['my_checkout']['my_module_pane_field2'])){
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Implements hook_pane_checkout_form_submit().
+ */
+ function my_checkout_pane_checkout_form_submit($form, &$form_state, $checkout_pane, $order) {
+   $order->field_shipping_method[LANGUAGE_NONE][0]['value'] = $form_state['values']['my_checkout']['my_module_pane_field2'];
+   commerce_order_save($order);
+ }
+
+
+ /**
+ * Implements hook_commerce_shipping_method_info().
+ */
+function my_checkout_commerce_shipping_method_info() {
+  $shipping_methods = array();
+
+  $shipping_methods['alixxor_shipping_method'] = array(
+    'title' => t('Shipping'),
+    'description' => t(''),
+  );
+
+  return $shipping_methods;
+}
+
+/**
+ * Implements hook_commerce_shipping_service_info().
+ */
+function my_checkout_commerce_shipping_service_info() {
+  $shipping_services = array();
+
+  $shipping_services['alixxor_shipping_service'] = array(
+    'title' => t('Shipping'),
+    'description' => t(''),
+    'display_title' => t('Shipping'),
+    'shipping_method' => 'alixxor_shipping_method',
+    'price_component' => 'shipping',
+    'callbacks' => array(
+      'rate' => 'alixxor_service_rate',
+      'details_form' => 'alixxor_service_details_form',
+      'details_form_validate' => 'alixxor_service_details_form_validate',
+      'details_form_submit' => 'alixxor_service_details_form_submit',
+    ),
+  );
+
+  return $shipping_services;
+}
+
+/**
+ * Shipping service callback: returns a base price array for a shipping service
+ * calculated for the given order.
+ */
+function alixxor_service_rate($shipping_service, $order) {
+
+  $standard_ship = array();
+  $priority_ship = array();
+  $ship_cost_item = array();
+
+  $profile_obj = commerce_customer_profile_load($order->commerce_customer_shipping['und'][0]['profile_id']);
+  $ship_zones = array('shipping_AUS', 'shipping_EA_NA_UC_EUR_SP', 'shipping_RW', 'shipping_NZ');
+  foreach($order->commerce_line_items['und'] as $line_item){
+    $line_item_obj = commerce_line_item_load($line_item['line_item_id']);
+    if($line_item_obj->type == 'product'){
+      $product_obj = commerce_product_load($line_item_obj->commerce_product['und'][0]['product_id']);
+      $delivery_country = $profile_obj->commerce_customer_address['und'][0]['country'];
+      $ship_zone = db_query("SELECT ship_zone FROM {ship_countries} WHERE country_iso_code_2 = '$delivery_country'")->fetchField();
+      
+     
+     if($shipping_service["name"] == 'alixxor_shipping_service'){
+
+
+     $standard_values =  db_query("SELECT * FROM {ship_items} WHERE name = :name", array(':name' => $product_obj->title))->fetchObject();
+      
+
+      if(in_array($ship_zone, $ship_zones)) {
+        if(!is_null($standard_values->{$ship_zone})){
+        $ship_cost_item[] = @$standard_values->$ship_zone;
+	}
+      }
+      }else{
+      $standard_values =  db_query("SELECT * FROM {priority_ship_items} WHERE name = :name", array(':name' => $product_obj->title))->fetchObject();
+
+      if(in_array($ship_zone, $ship_zones)) {
+        if(!is_null($standard_values->{$ship_zone})){
+        $ship_cost_item[] = @$standard_values->$ship_zone;
+	}
+      }
+     }
+    }
+  }
+
+  rsort($ship_cost_item);
+  if(isset($ship_cost_item[1])){
+    $ship_cost = $ship_cost_item[0] + (($ship_cost_item[1]*20)/100);
+  }else{
+    $ship_cost = $ship_cost_item[0];
+  }
+ 
+
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  return array(
+    'amount' => $ship_cost*100,
+    'currency_code' => $order_wrapper->commerce_order_total->currency_code->value(),
+    'data' => array(),
+  );
+  
+}
+
+/**
+ * Shipping service callback: returns the example shipping service details form.
+ */
+function alixxor_service_details_form($pane_form, $pane_values, $checkout_pane, $order, $shipping_service) {
+  $form = array();
+
+  $pane_values['service_details'] += array(
+    'name' => '',
+    'express' => '',
+  );
+}
+
+/**
+ * Implements hook_commerce_price_component_type_info().
+ */
+function my_checkout_commerce_price_component_type_info() {
+  return array(
+    'alixxor_shipping_service_express' => array(
+      'title' => t('Shipping'),
+      'weight' => 20,
+    ),
+  );
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function my_checkout_commerce_checkout_complete($order) {
+  $fc_ids = array();
+   foreach($order->commerce_line_items['und'] as $line_item){
+    $line_item_obj = commerce_line_item_load($line_item['line_item_id']);
+    if($line_item_obj->type == 'product'){
+      $product_obj = commerce_product_load($line_item_obj->commerce_product['und'][0]['product_id']);
+	  foreach($product_obj->field_package['und'] as $data){
+	    $fc_ids[] = $data['value'];
+	  }
+    }
+   }
+   $field_collection_item_fields = entity_load('field_collection_item', $fc_ids);
+   $fc_datas = array();
+   foreach ($field_collection_item_fields as $fc_values) {
+     //print "<pre>"; print_r($fc_values); print "</pre>"; die;
+     $fc_datas[$fc_values->field_ref_product['und'][0]['product_id']] = $fc_values->field_quantity['und'][0]['value'];
+   }
+
+   $stock_data = array();
+   foreach($fc_datas as $key => $fc_value){
+     
+     $wrapper = entity_metadata_wrapper('commerce_product',commerce_product_load($key));
+     $new_stock_tem = $wrapper->commerce_stock->value() - $fc_value; 
+     if($new_stock_tem < 5) {
+       $stock_data[$key] = $new_stock_tem;
+     }
+     $wrapper->commerce_stock->set($wrapper->commerce_stock->value() - $fc_value);
+     $wrapper->save();
+   }
+
+   $header = array('Product', 'Quantity');
+   $rows = array();
+   if(count($stock_data) > 0) {
+
+   global $base_url;
+   foreach($stock_data as $product_id => $quantity) {
+     $product_obj = commerce_product_load($product_id);
+     //print "<pre>"; print_r($product_obj); print "</pre>"; die;
+
+     $row = array();
+     //$row[] = l($product_obj->title, $base_url.'/node/'.$product_obj->product_id);
+      $row[] = $product_obj->title;
+     $row[] = @$product_obj->commerce_stock['und'][0]['value'];
+     $rows[] = $row;
+   }
+
+   
+   $stock_table = theme('table',  array( 'header' => $header, 'rows' => $rows));
+   sendStockEmail($stock_table);
+
+        /*$title = "Stock Notification";
+        $mess =  $stock_table;
+        $to = 'nishant.drupalchamp@gmail.com';
+$from = 'ujjwal.drupalchamp@gmail.com';
+        mail($to, $title, $mess, 'From:'.$from);*/
+
+   }
+}
+
+function sendStockEmail($data) {
+$to = 'info@aliXXor.com';
+$from = 'inventory@aliXXor.com';
+$subject = "Stock Notification";
+
+$module = 'mimemail';
+$token = time();
+
+$message = array(
+  'id' => $module . '_' . $token,
+  'to' => $to,
+  'subject' => $subject,
+  'body' => $data,
+  'headers' => array(
+    'From' => $from,
+    'Sender' => $from,
+    'Return-Path' => $from,
+    'MIME-Version' => '1.0',
+    'Content-Type' => 'text/html; charset=UTF-8',
+  ),
+);
+
+$system = drupal_mail_system($module, $token);
+$message = $system->format($message);
+
+if ($system->mail($message)) {
+  return TRUE;
+}
+else {
+  return FALSE;
+}
+}
+
+
+/**
+  * Implements hook_rules_action_info().
+  */
+function my_checkout_rules_action_info() {
+  return array(
+    'my_checkout_remove_all_coupon' => array(
+      'label' => 'Remove all coupons from the cart',
+      'group' => 'My Custom Group',
+    ),
+  );
+}
+
+// Action: Remove all coupons from the cart
+function my_checkout_remove_all_coupon() {
+	// Remove all coupons from the cart
+	global $user;
+	$order = commerce_cart_order_load($user->uid);
+	$order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+	foreach ($order_wrapper->commerce_coupons as $coupon) {
+		commerce_coupon_remove_coupon_from_order($order, $coupon->value(), $save = TRUE);
+	}
+}
+

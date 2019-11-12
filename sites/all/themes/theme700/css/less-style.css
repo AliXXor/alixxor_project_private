@@ -1,0 +1,256 @@
+/////////////////
+// Semantic.gs // for LESS: http://lesscss.org/
+/////////////////
+
+// Defaults which you can freely override
+@gutter-width: 20;
+@columns: 12;
+@column-width: 60;
+
+// Utility variable - you should never need to modify this
+@_gridsystem-width: @main-width * 1px;
+
+@main-width: 960;
+
+// Set @total-width to 100% for a fluid layout
+@total-width: 960;
+
+// Uncomment these two lines and the star-hack width/margin lines below to enable sub-pixel fix for IE6 & 7. See http://tylertate.com/blog/2012/01/05/subpixel-rounding.html
+// @min-width: 960;
+// @correction: 0.5 / @min-width * 100 * 1%;
+
+//////////
+// GRID //
+//////////
+
+body {
+	.clearfix;
+}
+
+.row(@columns:@columns) {
+	display: inline-block;
+	width: @_gridsystem-width*((@gutter-width + @_gridsystem-width)/@_gridsystem-width); /* 960*((20+960)/960)=980 */
+	margin: 0 @total-width*(((@gutter-width*.5)/@_gridsystem-width)*-1); 			/* 960*(((20*0.5)/960)*-1)=-10 */
+	.clearfix;
+}
+
+// [bb] is @columns here even used?
+.column(@x) {
+	display: inline;  /* [bb] not sure why this is better than block, seems to work both ways */
+	float: left;
+	width: @_gridsystem-width*((((@gutter-width+@column-width)*@x)-@gutter-width) / @_gridsystem-width); /* 960*((((20+60)*X)-20)/960)=940 */
+	margin: 0 @total-width*((@gutter-width*.5)/@_gridsystem-width);									/* 960*((20*.05)/960)=10 */
+}
+
+// [bb] alternative to .row() - changing margin
+.nested-column(@x) {
+  /*display: inline;
+	float: left;*/
+	width: @total-width*(((@gutter-width+@column-width)*@x) / @_gridsystem-width);  /* 960*(((20+60)*X)/960)=960 */
+	margin: 0 auto;
+}
+
+#content {
+	.column(12);
+	}
+.one-sidebar.sidebar-first #content, .one-sidebar.sidebar-second #content {
+	.column(8);
+	}
+.one-sidebar.sidebar-first #content .section, .one-sidebar.sidebar-second #content .section {}
+.two-sidebars #content {
+	.column(6);
+	}	
+aside#sidebar-first {
+	.column(3);
+	}
+.one-sidebar.sidebar-first #content, .one-sidebar.sidebar-second #content {
+	.column(9);
+	}	
+.one-sidebar.sidebar-second #content .section {padding-right:30px; width:auto;}	
+
+#block-block-7 {.column(3);}
+#block-block-8 {.column(6);}
+#block-follow-site {.column(3);}
+
+.view-services .views-row {.column(4); margin-bottom:35px;}
+
+aside#sidebar-second {
+	.column(4);
+	}
+.alpha { margin-left: 0;}
+.omega { margin-right: 0;}
+.page-portfolio .view-portfolio .views-row {.column(3);}
+.page-portfolio-3-cols .view-portfolio .views-row {.column(4);}
+.page-portfolio-2-cols .view-portfolio .views-row {.column(6);}
+.page-portfolio-1-col .view-portfolio .views-row {.column(12);}
+
+
+.page-contacts .pane-contact {.column(8);}
+.page-contacts .pane-block-1 {.column(4);}
+
+.view-articles .views-row {.column(4);}
+.view-our-team .views-row {.column(2); margin-bottom:25px;}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* IPad in portrait (width:768px) */
+@media only screen and (min-width: 768px) and (max-width: 959px) {
+	.page {width:747px;}
+	#content {
+		.column(9);
+		}
+	#superfish-1 > li {width:120px;}
+	.view-slider .views-field-body {top:150px; font-size:50px; line-height:50px; display:block;}
+	.view-articles .views-row {.column(3);}
+	.view-articles .views-row .views-field-body {padding-right:5px;}
+	.one-sidebar.sidebar-first #content, .one-sidebar.sidebar-second #content {
+		.column(6);
+		}
+	.one-sidebar.sidebar-first #content .section, .one-sidebar.sidebar-second #content .section {padding:0;}
+	aside#sidebar-second {.column(3);}
+	aside#sidebar-second .section {padding:0;}
+	#block-block-6 .content .wrapper .img-ind {margin-right:10px;}
+	#block-block-7 {.column(2);}
+	#block-block-8 {.column(5);}
+	#block-follow-site {.column(2);}
+	.view-services .views-row {.column(3); margin-bottom:35px;}	
+	aside#sidebar-first {
+		.column(3);
+		}
+	aside#sidebar-first .section {padding: 0;}	
+	.page-portfolio .view-portfolio .views-row {.column(3);}
+	.page-portfolio-3-cols .view-portfolio .views-row {.column(3);}
+	.page-portfolio-2-cols .view-portfolio .views-row {.column(4);}
+	.page-portfolio-1-col .view-portfolio .views-row {.column(9)}
+	.page-portfolio-1-col .view-portfolio .views-row .views-field-field-portfolio-image {width:400px;}
+	.page-contacts .pane-contact {.column(6);}
+	.page-contacts .pane-block-1 {.column(3);}
+}
+
+
+
+/* IPhone portrait/Android phones (width:320px) */
+@media only screen and (max-width: 767px) {	
+	.page {width:320px;}
+	#content {
+		.column(4);
+		}
+	#superfish-1 > li {
+		padding:0;
+		width:100%;
+		background:none;
+		border-bottom:1px solid #484848;
+	}
+	#superfish-1 > li.last {border-bottom:none;}
+	#superfish-1 > li a {
+		padding:10px 20px 11px;
+		}
+	#superfish-1 > li ul {
+		position:relative;
+		padding:10px 0;
+		width:100% !important;
+		top:0 !important;
+		left:0;
+		}
+	#superfish-1 > li ul li {
+		float:none;
+		width:100%;
+		padding:0 0 5px 0;
+		}
+	.view-slider .views-field-body {display:none !important;} 	
+	.section-1 .col1 {float:none; margin-bottom:20px;}
+	.section-1 .col2 {float:none;}
+	#block-system-user-menu {float:left;}
+	#block-system-user-menu .content ul li.last {padding-right:0; background:none;}
+	#block-search-form {float:left;}
+	.view-articles .view-content .views-row .views-field-title {margin-bottom:10px;}
+	.view-articles .views-row {.column(4); margin-bottom:25px;}
+	.one-sidebar.sidebar-first #content, .one-sidebar.sidebar-second #content {
+		.column(4);
+		}
+	.one-sidebar.sidebar-first #content .section, .one-sidebar.sidebar-second #content .section {padding:0;}
+	#block-block-6 .content .wrapper .img-ind {margin:0 0px 10px 0; float:left;}
+	#block-block-6 .content .wrapper .extra {clear:both;}
+	#sidebar-second .section {padding:20px 0 0;}
+	#block-block-7 {.column(4); margin-bottom:25px;}
+	#block-block-8 {.column(4); }
+	#block-follow-site {.column(4); margin-top:30px;}
+	.view-services .views-row {.column(4); margin-bottom:35px;}
+	aside#sidebar-first .section {padding:0 0 20px;}	
+	article .field-name-body {clear:both; padding-top:10px;}
+	.page-portfolio .view-portfolio .views-row {.column(4);}
+	.page-portfolio-2-cols .view-portfolio .views-row {.column(4);}
+	.page-portfolio-1-col .view-portfolio .views-row {.column(4);}
+	.page-portfolio-1-col .view-portfolio .views-row .views-field-field-portfolio-image {width:100%; margin-bottom:15px;}
+	article.comment .user-picture {display:none;}
+	#contact-site-form .form-textarea-wrapper {margin-right:0px;}
+	#contact-site-form input.form-text {width:265px;}
+	.page-contacts .pane-contact {.column(4); margin-bottom:25px;}
+	.page-contacts .pane-block-1 {.column(4);}
+}
+
+
+
+/* IPhone landscape/Galaxy Tab(width:480px) */
+@media only screen and (min-width: 480px) and (max-width: 767px) {
+	.page {width:480px;}
+	#content {
+		.column(6);
+		}
+	#superfish-1 > li {
+		padding:0;
+		width:100%;
+		background:none;
+		border-bottom:1px solid #484848;
+	}
+	#superfish-1 > li.last {border-bottom:none;}
+	#superfish-1 > li a {
+		padding:10px 20px 11px;
+		}
+	#superfish-1 > li ul {
+		position:relative;
+		padding:10px 0;
+		width:100% !important;
+		top:0 !important;
+		left:0;
+		}
+	#superfish-1 > li ul li {
+		float:none;
+		width:100%;
+		padding:0 0 5px 0;
+		}
+	.view-slider .views-field-body {display:none !important;} 	
+	.section-1 .col1 {float:none; margin-bottom:20px;}
+	.section-1 .col2 {float:none;}
+	#block-system-user-menu {float:right;}
+	#block-system-user-menu .content ul li {padding-right:0; background:none;}
+	#block-search-form {float:left;}
+	.view-articles .views-row {.column(6); margin-bottom:25px;}
+	.view-articles .view-content .views-row .views-field-title {margin-bottom:10px;}
+	.one-sidebar.sidebar-first #content, .one-sidebar.sidebar-second #content {
+		.column(6);
+		}
+	.one-sidebar.sidebar-first #content .section, .one-sidebar.sidebar-second #content .section{	
+		padding:0;
+		}
+	#block-block-6 .content .wrapper .img-ind {margin:0 10px 0px 0; float:left;}
+	#block-block-6 .content .wrapper .extra {overflow:visible; clear:none;}
+	aside#sidebar-second {display:none;}
+	#block-block-7 {.column(2);}
+	#block-block-8 {.column(4);}
+	#block-follow-site {.column(6); margin-top:30px;}
+	.view-services .views-row {.column(3); margin-bottom:35px;}
+	aside#sidebar-first {
+		.column(6);
+		}
+	aside#sidebar-first .section {padding:0 0 20px;}
+	article .field-name-body {clear:none;}
+	.page-portfolio .view-portfolio .views-row {.column(3);}
+	.page-portfolio-3-cols .view-portfolio .views-row {.column(3);}
+	.page-portfolio-2-cols .view-portfolio .views-row {.column(3);}
+	.page-portfolio-1-col .view-portfolio .views-row {.column(6);}
+	.page-portfolio-1-col .view-portfolio .views-row .views-field-field-portfolio-image {width:100%; margin-bottom:15px;}
+	.page-contacts .pane-contact {.column(6); margin-bottom:25px;}
+	.page-contacts .pane-block-1 {.column(6);}
+}

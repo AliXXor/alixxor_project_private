@@ -1,0 +1,524 @@
+<?php
+
+function my_checkout_init() {
+  drupal_add_js('jQuery(document).ready(function () {
+    jQuery(".postal-code").prepend("<strong>Postal code: </strong>");
+    jQuery(".postal-code").css("background-color","#dad5d5");
+   });', array(
+  'type' => 'inline',
+  'scope' => 'footer',
+  'weight' => 5,
+));
+}
+
+/**
+ * Implements hook_menu().
+ */
+function my_checkout_menu() {
+
+  $items['set-minimum-inventory-number'] = [
+    'title' => 'Set Minimum Inventory Number',
+    'page callback' => 'set_minimum_inventory_number_callback',
+    'type' => MENU_CALLBACK,
+    'access arguments' => ['administer users'],
+  ];
+  $items['custom-currency-convert/%/%/%'] = [
+    'title' => 'custom-currency-convert',
+    'page callback' => 'custom_currency_convert',
+    'type' => MENU_LOCAL_TASK,
+    'page arguments' => [1, 2, 3],
+    'access callback' => TRUE,
+
+  ];
+
+  return $items;
+}
+
+/**
+ * Function to call set minimum inventory number form.
+ */
+
+function set_minimum_inventory_number_callback() {
+  $output = '';
+  $form = drupal_get_form('set_minimum_inventory_number_fields');
+  $output .= drupal_render($form);
+  return $output;
+}
+
+/**
+ * Function to edit set minimum inventory number form field.
+ */
+
+function set_minimum_inventory_number_fields($form, &$form_state) {
+  $form = [];
+  $form['#prefix'] = '<div id="set_minimum_inventory_number_form">';
+  $form['#suffix'] = '</div>';
+  $min_inventry = '';
+  $min_inventry = variable_get('custom_min_inventory_number');
+  $form['set_minimum_inventory_number'] = [
+    '#type' => 'textfield',
+    '#title' => 'Inventory Number',
+    '#required' => TRUE,
+    '#attributes' => ['placeholder' => t('Inventory Number')],
+    '#default_value' => $min_inventry,
+  ];
+
+  $form['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#prefix' => '<div id="button_area">',
+    '#suffix' => '</div>',
+  ];
+  return $form;
+}
+
+/**
+ * Function to submit set minimum inventory number form field.
+ */
+
+function set_minimum_inventory_number_fields_submit($form, &$form_state) {
+
+  variable_set('custom_min_inventory_number', ($form_state['values']['set_minimum_inventory_number']));
+  drupal_set_message('Minimum Inventory Number updated successfully.');
+
+}
+
+/**
+ * Implements hook_commerce_checkout_pane_info()
+ */
+function my_checkout_commerce_checkout_pane_info() {
+  $panes['my_checkout'] = [
+    'title' => t('Shipping method'),
+    'page' => 'checkout',
+    'weight' => -20,
+    'base' => 'my_checkout_pane',
+  ];
+  return $panes;
+}
+
+/**
+ * Implements base_checkout_form()
+ */
+function my_checkout_pane_checkout_form($form, $form_state, $checkout_pane, $order) {
+  $checkout_form['my_module_pane_field2'] = [
+    '#type' => 'radios',
+    '#title' => t('Please select shipping method:'),
+    '#description' => '',
+    '#options' => [
+      'standard_shipping' => 'Airmail, 6-10 days',
+     // 'priority_shipping' => 'Priority shipping, 4-6 days',
+    ],
+    '#default_value' => isset($order->field_shipping_method['und']) ? $order->field_shipping_method['und'][0]['value'] : 'standard_shipping',
+    '#required' => TRUE,
+    '#validated'=> TRUE
+  ];
+    $address = commerce_customer_profile_load(
+      $order->commerce_customer_shipping['und'][0]['profile_id']
+    );
+    $avail = db_query(
+      "SELECT * FROM {service_availability} WHERE country_code = ?",
+      [$address->commerce_customer_address['und'][0]['country']]
+    )
+      ->fetchAssoc();
+    if ($avail['courier']) {
+      if ($avail['courier'] == '4-6 days') {
+        $checkout_form['my_module_pane_field2']['#options']['courier_shipping_4_days'] =
+          'Courier shipping, ' . $avail['courier'];
+      } else {
+        $checkout_form['my_module_pane_field2']['#options']['courier_shipping'] =
+          'Courier shipping, ' . $avail['courier'];
+      }
+
+    }
+  return $checkout_form;
+}
+
+function my_checkout_addressfield_standard_widget_refresh_alter(&$commands, &$form, &$form_state) {
+  $field = $form_state['input']['customer_profile_shipping']['commerce_customer_profile_copy']
+    ? $form_state['input']['customer_profile_billing']
+    : $form_state['input']['customer_profile_shipping'];
+  $country = $field['commerce_customer_address']['und'][0]['country'];
+  $avail = db_query(
+    "SELECT * FROM {service_availability} WHERE country_code = ?", [$country]
+  )->fetchAssoc();
+
+  $element = $form['my_checkout']['my_module_pane_field2'];
+  $element['#processed'] = FALSE;
+  $element['#printed'] = FALSE;
+  unset($element['#children']);
+  $element['#options'] = [
+    'standard_shipping' => 'Airmail, 6-10 days',
+//    'priority_shipping' => 'Priority shipping, 4-6 days',
+  ];
+  if ($avail) {
+    if ($avail['courier'] == '4-6 days') {
+      $element['#options']['courier_shipping_4_days'] = 'Courier shipping, ' . $avail['courier'];
+      $element['courier_shipping_4_days'] = [
+        "#type" => "radio",
+        "#title" => 'Courier shipping, ' . $avail['courier'],
+        "#return_value" => "courier_shipping_4_days",
+        "#default_value" => "standard_shipping",
+        "#parents" => [
+          "my_checkout",
+          "my_module_pane_field2",
+        ],
+        "#process" => [
+          "ajax_process_form",
+          "bootstrap_form_process",
+        ],
+        "#theme" => "radio",
+        "#array_parents" => [
+          "my_checkout",
+          "my_module_pane_field2",
+  //        "priority_shipping",
+        ],
+        // '#validated' => TRUE,
+        "#name" => "my_checkout[my_module_pane_field2]",
+        '#value' =>  $element['#value'],
+      ];
+    } else {
+      $element['#options']['courier_shipping'] = 'Courier shipping, ' . $avail['courier'];
+      $element['courier_shipping'] = [
+        "#type" => "radio",
+        "#title" => 'Courier shipping, ' . $avail['courier'],
+        "#return_value" => "courier_shipping",
+        "#default_value" => "standard_shipping",
+        "#parents" => [
+          "my_checkout",
+          "my_module_pane_field2",
+        ],
+        "#process" => [
+          "ajax_process_form",
+          "bootstrap_form_process",
+        ],
+        "#theme" => "radio",
+        "#array_parents" => [
+          "my_checkout",
+          "my_module_pane_field2",
+  //        "priority_shipping",
+        ],
+        // '#validated' => TRUE,
+        "#name" => "my_checkout[my_module_pane_field2]",
+        '#value' =>  $element['#value'],
+      ];
+    }
+
+  }else{
+    unset($element['courier_shipping']);
+    unset($element['courier_shipping_4_days']);
+    if ($element['#value'] == 'courier_shipping' || $element['#value'] == 'courier_shipping_4_days' ) {
+      $element['#value'] = 'standard_shipping';
+      $element['standard_shipping']['#value'] = 'standard_shipping';
+//      $element['priority_shipping']['#value'] = 'standard_shipping';
+    }
+  }
+  $commands[] = ajax_command_replace('.form-item-my-checkout-my-module-pane-field2.form-type-radios', render($element));
+}
+
+/**
+ * Implements hook_pane_checkout_form_validate().
+ */
+function my_checkout_pane_checkout_form_validate($form, &$form_state, $checkout_pane, $order) {
+  if (empty($form_state['values']['my_checkout']['my_module_pane_field2'])) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Implements hook_pane_checkout_form_submit().
+ */
+function my_checkout_pane_checkout_form_submit($form, &$form_state, $checkout_pane, $order) {
+  $order->field_shipping_method['und'][0]['value'] = $form_state['values']['my_checkout']['my_module_pane_field2'];
+  commerce_order_save($order);
+}
+
+/**
+ * Implements hook_commerce_shipping_method_info().
+ */
+function my_checkout_commerce_shipping_method_info() {
+  $shipping_methods = [];
+
+  $shipping_methods['alixxor_shipping_method'] = [
+    'title' => t('Shipping'),
+    'description' => t(''),
+  ];
+
+  return $shipping_methods;
+}
+
+/**
+ * Implements hook_commerce_shipping_service_info().
+ */
+function my_checkout_commerce_shipping_service_info() {
+  $shipping_services = [];
+
+  $shipping_services['alixxor_shipping_service'] = [
+    'title' => t('Shipping'),
+    'description' => t(''),
+    'display_title' => t('Shipping'),
+    'shipping_method' => 'alixxor_shipping_method',
+    'price_component' => 'shipping',
+    'callbacks' => [
+      'rate' => 'alixxor_service_rate',
+      'details_form' => 'alixxor_service_details_form',
+      'details_form_validate' => 'alixxor_service_details_form_validate',
+      'details_form_submit' => 'alixxor_service_details_form_submit',
+    ],
+  ];
+
+  return $shipping_services;
+}
+
+/**
+ * Shipping service callback: returns a base price array for a shipping service
+ * calculated for the given order.
+ */
+function alixxor_service_rate($shipping_service, $order) {
+
+  $ship_cost_item = [];
+
+  $profile_obj = commerce_customer_profile_load($order->commerce_customer_shipping['und'][0]['profile_id']);
+  $ship_zones = [
+    'shipping_AUS',
+    'shipping_EA_NA_UC_EUR_SP',
+    'shipping_RW',
+    'shipping_NZ',
+  ];
+  $method_codes = [
+    'standard_shipping' => 'AM',
+    'courier_shipping' => 'EC',
+    'courier_shipping_4_days' => 'EC'
+  ];
+  foreach ($order->commerce_line_items['und'] as $line_item) {
+    $line_item_obj = commerce_line_item_load($line_item['line_item_id']);
+    if ($line_item_obj->type == 'product') {
+      $product_obj = commerce_product_load($line_item_obj->commerce_product['und'][0]['product_id']);
+      $delivery_country = $profile_obj->commerce_customer_address['und'][0]['country'];
+      $ship_zone = db_query("SELECT ship_zone FROM {ship_countries} WHERE country_iso_code_2 = '$delivery_country'")->fetchField();
+
+      if ($shipping_service["name"] == 'alixxor_shipping_service') {
+        $standard_values = db_query(
+          "SELECT * FROM {ship_items} WHERE name = :name AND method = :method",
+          [
+            ':name' => $product_obj->title,
+            ':method' => $method_codes[$order->field_shipping_method['und'][0]['value'] ?: 'AM']
+          ]
+        )->fetchObject();
+
+        if (in_array($ship_zone, $ship_zones)) {
+          if (!is_null($standard_values->{$ship_zone})) {
+            $ship_cost_item[] = @$standard_values->$ship_zone;
+          }
+        }
+      }
+      else {
+        $standard_values = db_query("SELECT * FROM {priority_ship_items} WHERE name = :name", [':name' => $product_obj->title])->fetchObject();
+
+        if (in_array($ship_zone, $ship_zones)) {
+          if (!is_null($standard_values->{$ship_zone})) {
+            $ship_cost_item[] = @$standard_values->$ship_zone;
+          }
+        }
+      }
+    }
+  }
+
+  rsort($ship_cost_item);
+  if (isset($ship_cost_item[1])) {
+    $ship_cost = $ship_cost_item[0] + (($ship_cost_item[1] * 20) / 100);
+  }
+  else {
+    $ship_cost = $ship_cost_item[0];
+  }
+
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  return [
+    'amount' => $ship_cost * 100,
+    'currency_code' => 'USD', // Requested.
+//    'currency_code' => $order_wrapper->commerce_order_total->currency_code->value(),
+    'data' => [],
+  ];
+
+}
+
+/**
+ * Shipping service callback: returns the example shipping service details form.
+ */
+function alixxor_service_details_form($pane_form, $pane_values, $checkout_pane, $order, $shipping_service) {
+  $form = [];
+
+  $pane_values['service_details'] += [
+    'name' => '',
+    'express' => '',
+  ];
+}
+
+/**
+ * Implements hook_commerce_price_component_type_info().
+ */
+function my_checkout_commerce_price_component_type_info() {
+  return [
+    'alixxor_shipping_service_express' => [
+      'title' => t('Shipping'),
+      'weight' => 20,
+    ],
+  ];
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function my_checkout_commerce_checkout_complete($order) {
+  $fc_ids = [];
+  foreach ($order->commerce_line_items['und'] as $line_item) {
+    $line_item_obj = commerce_line_item_load($line_item['line_item_id']);
+    if ($line_item_obj->type == 'product') {
+      $product_obj = commerce_product_load($line_item_obj->commerce_product['und'][0]['product_id']);
+
+      foreach ($product_obj->field_package['und'] as $data) {
+        $fc_ids[] = $data['value'];
+      }
+    }
+  }
+  $field_collection_item_fields = entity_load('field_collection_item', $fc_ids);
+  $fc_datas = [];
+  foreach ($field_collection_item_fields as $fc_values) {
+    //watchdog('fc_values', '<pre>'. print_r($fc_values,true).'</pre>');
+    // print "<pre>"; print_r($fc_values); print "</pre>"; die;
+    $sub_product_obj = commerce_product_load($fc_values->field_ref_product['und'][0]['product_id']);
+    if ($sub_product_obj->status == 1) {
+      if (isset($fc_values->field_ref_product['und'][0]['product_id']) && isset($fc_values->field_quantity['und'][0]['value'])) {
+        $fc_datas[$fc_values->field_ref_product['und'][0]['product_id']] = $fc_values->field_quantity['und'][0]['value'];
+      }
+    }
+  }
+
+  //watchdog('fc_datas', '<pre>'. print_r($fc_datas,true).'</pre>');
+  $stock_data = [];
+  foreach ($fc_datas as $key => $fc_value) {
+
+    $wrapper = entity_metadata_wrapper('commerce_product', commerce_product_load($key));
+    //print "<pre>"; print_r($wrapper); print "</pre>";
+    //watchdog('wrapper', '<pre>'. print_r($wrapper,true).'</pre>');
+    $new_stock_tem = $wrapper->commerce_stock->value() - $fc_value;
+
+    $min_inventry_stock_item = variable_get('custom_min_inventory_number');
+
+    if ($new_stock_tem < $min_inventry_stock_item) {
+      $stock_data[$key] = $new_stock_tem;
+    }
+    $wrapper->commerce_stock->set($wrapper->commerce_stock->value() - $fc_value);
+    $wrapper->save();
+  }
+
+  $header = ['Product', 'Quantity'];
+  $rows = [];
+  if (count($stock_data) > 0) {
+
+    global $base_url;
+    foreach ($stock_data as $product_id => $quantity) {
+      $product_obj = commerce_product_load($product_id);
+      //print "<pre>"; print_r($product_obj); print "</pre>"; die;
+
+      $row = [];
+      //$row[] = l($product_obj->title, $base_url.'/node/'.$product_obj->product_id);
+      $row[] = $product_obj->title;
+      $row[] = @$product_obj->commerce_stock['und'][0]['value'];
+      $rows[] = $row;
+    }
+
+    $stock_table = theme('table', ['header' => $header, 'rows' => $rows]);
+    sendStockEmail($stock_table);
+  }
+}
+
+function sendStockEmail($data) {
+  $to = 'info@aliXXor.com';
+  $from = 'inventory@aliXXor.com';
+  $subject = "Stock Notification";
+
+  $module = 'mimemail';
+  $token = time();
+
+  $message = [
+    'id' => $module . '_' . $token,
+    'to' => $to,
+    'subject' => $subject,
+    'body' => $data,
+    'headers' => [
+      'From' => $from,
+      'Sender' => $from,
+      'Return-Path' => $from,
+      'MIME-Version' => '1.0',
+      'Content-Type' => 'text/html; charset=UTF-8',
+    ],
+  ];
+
+  $system = drupal_mail_system($module, $token);
+  $message = $system->format($message);
+
+  if ($system->mail($message)) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Implements hook_rules_action_info().
+ */
+function my_checkout_rules_action_info() {
+  return [
+    'my_checkout_remove_all_coupon' => [
+      'label' => 'Remove all coupons from the cart',
+      'group' => 'My Custom Group',
+    ],
+  ];
+}
+
+// Action: Remove all coupons from the cart
+function my_checkout_remove_all_coupon() {
+  // Remove all coupons from the cart
+  global $user;
+  $order = commerce_cart_order_load($user->uid);
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  foreach ($order_wrapper->commerce_coupons as $coupon) {
+    commerce_coupon_remove_coupon_from_order($order, $coupon->value(), $save = TRUE);
+  }
+}
+
+function _field_is_empty($item, $field) {
+  if (!is_array($item) || (empty($item['fid']))) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+function my_checkout_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'commerce_checkout_form_shipping') {
+  }
+}
+
+function my_checkout_commerce_cart_order_refresh($order_wrapper) {
+
+  if (arg(0) == 'checkout' && is_numeric(arg(1)) && arg(2) == 'review') {
+    $order_id = $order_wrapper->order_id->value();
+    $order = commerce_order_load($order_id);
+    $currency_code = $order->commerce_order_total['und'][0]['currency_code'];
+    if ($currency_code == 'AUD' || $currency_code == 'CAD' || $currency_code == 'EUR' || $currency_code == 'GBP' || $currency_code == 'NZD') {
+      $service_name = 'alixxor_shipping_service';
+      commerce_shipping_service_rate_order($service_name, $order);
+      // commerce_shipping_delete_shipping_line_items($order, TRUE);
+      $rate_line_item = $order->shipping_rates[$service_name];
+      $rate_line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $rate_line_item);
+      $unit_price = $rate_line_item_wrapper->commerce_unit_price->value();
+      $unit_price['currency_code'] = $currency_code;
+      $line_item = commerce_shipping_line_item_new($service_name, $unit_price, $order->order_id, $rate_line_item->data, $rate_line_item->type);
+      $new_line_item = commerce_shipping_add_shipping_line_item($line_item, $order, TRUE);
+      //commerce_line_item_save($new_line_item);
+      commerce_order_save($order);
+    }
+  }
+}

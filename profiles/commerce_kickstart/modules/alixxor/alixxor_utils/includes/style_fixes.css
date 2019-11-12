@@ -1,0 +1,24 @@
+
+div.textfield_with_currency {
+    clear: both;
+}
+
+div.textfield_with_currency div.form-type-textfield {
+    float: left;
+}
+
+div.textfield_with_currency span.currency_symbol {
+    float: left;
+    padding: 2px 1px;
+    margin-left: 2px;
+}
+
+div.textfield_with_percent div.form-type-textfield {
+    float: right;
+}
+
+div.textfield_with_percent span.percent_symbol {
+    float: right;
+    padding: 2px 1px;
+    margin-right: 10px;
+}

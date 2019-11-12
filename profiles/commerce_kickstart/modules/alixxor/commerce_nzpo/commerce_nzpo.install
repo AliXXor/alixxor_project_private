@@ -1,0 +1,115 @@
+<?php
+
+/**
+ * @file
+ * Handles installation for Commerce NZPO module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function commerce_nzpo_schema() {
+  $schema['commerce_nzpo_shipping_zones'] = array(
+    'description' => 'Stores countries and their ship zones',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The primary key.',
+        'no export' => TRUE,
+      ),
+      'country_name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'default' => '',
+        'not null' => TRUE,
+        'description' => 'Country name',
+      ),
+      'country_iso_code_2' => array(
+        'type' => 'varchar',
+        'length' => 2,
+        'default' => '',
+        'not null' => TRUE,
+        'description' => 'ISO2 code',
+      ),
+      'country_iso_code_3' => array(
+        'type' => 'varchar',
+        'length' => 3,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'ISO3 code',
+      ),
+      'shipping_zone' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Shipping zone of Country',
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array('iso_code_2' => array('iso_code_2'), 'iso_code_3' => array('iso_code_3')),
+  );
+  
+  $schema['commerce_nzpo_shipping_rates'] = array(
+    'description' => 'Stores shipping rates for all Products',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The primary key.',
+        'no export' => TRUE,
+      ),
+      'product_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Product Id',
+      ),
+      'priority' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'default' => 0,
+        'not null' => TRUE,
+        'description' => 'Priority shipping flag',
+      ),
+      'shipping_NZ' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Shipping rate for New Zealand',
+      ),
+      'shipping_AUS' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Shipping rate for Australia',
+      ),
+      'shipping_EA_NA_UC_EUR_SP' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Shipping rate for East and North Asia, Europe, USA, Canada',
+      ),
+      'shipping_RW' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Shipping rate for Rest of World',
+      ),
+      'shipping_addon_pct' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Shipping rate addon product (%)',
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array('priority' => array('priority'), 'product' => array('product_id', 'priority')),
+  );
+
+  return $schema;
+}
+

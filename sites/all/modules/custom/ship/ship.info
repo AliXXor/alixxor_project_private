@@ -1,0 +1,5 @@
+name = Ship table module
+description = Shipping table module.
+package = Custom
+core = 7.x
+

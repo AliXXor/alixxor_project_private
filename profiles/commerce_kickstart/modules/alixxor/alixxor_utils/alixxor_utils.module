@@ -1,0 +1,234 @@
+<?php
+
+/**
+ * @file
+ * Handles main functionality for Alixxor Utils module.
+ */
+function alixxor_utils_init() {
+    drupal_add_css(drupal_get_path('module', 'alixxor_utils') . '/includes/style_fixes.css');
+}
+
+function alixxor_utils_menu() {
+    $items = array();
+
+    $items['import_frequency'] = array(
+        'title' => 'Import',
+        'page callback' => 'alixxor_commerce_import_frequency',
+        'access arguments' => array('administer content'),
+        'type' => MENU_CALLBACK,
+    );
+
+    return $items;
+}
+
+function alixxor_commerce_import_frequency() {
+    $content = '';
+    $items = db_select('frequency', 'f')
+            ->fields('f')
+            ->execute();
+
+
+
+    foreach ($items as $item) {
+        /* $title = trim($item->name, '"'); 
+          if ($title) {
+          $description = trim($item->description, '"');
+
+          $node = new stdClass();
+          $node->type = 'disease';
+          node_object_prepare($node);
+
+          $node->title    = $title;
+          $node->language = LANGUAGE_NONE;
+
+          $node->body[$node->language][0]['value']   = $description;
+          $node->body[$node->language][0]['summary'] = text_summary($description);
+          $node->body[$node->language][0]['format']  = 'plain';
+
+          for ($i = 1; $i < 26; $i++) {
+          if ($item->{$i} && $item->{$i} < 100000) {
+          $node->field_frequency[$node->language][] = array('value' => $item->{$i});
+          } elseif ($item->{$i}) {
+          drupal_set_message("Passed ".$item->{$i});
+          }
+          }
+
+          node_save($node);
+          $content .= '<div>';
+          $content .= "<strong>{$node->nid} {$item->name}</strong> - {$item->description}";
+          $content .= '</div>';
+          } */
+    }
+
+    return $content;
+}
+
+function alixxor_utils_form_alter(&$form, &$form_state, $form_id) {
+    if ($form_id == 'feedback_node_form' && empty($form['nid']['#value'])) {
+        global $user;
+        $form['title_field']['#access'] = FALSE;
+        $form['field_list_weight']['#access'] = FALSE;
+
+        if ($user->uid) {
+            $form['field_email']['und'][0]['email']['#default_value'] = $user->mail;
+            $form['field_name']['und'][0]['value']['#default_value'] = $user->name;
+        }
+    } elseif ($form_id == 'commerce_multicurrency_selector_form') {
+//        $form['caption'] = array(
+//            '#type' => 'markup',
+//            '#markup' => '<div class="select_prefix">Currency:</div>',
+//            '#weight' => -10,
+//        );
+    } elseif ($form_id == 'views_exposed_form' && $form['#id'] == 'views-exposed-form-frequency-search-page') {
+        $form['frequency']['#suffix'] = '<span>Hz</span>';
+    }
+
+    return $form;
+}
+
+/**
+ * Implements hook_rules_action_info().
+ */
+//function alixxor_utils_rules_action_info() {
+//    $actions = array();
+//    $actions['alixxor_coupon_pct_apply_to_product'] = array(
+//        'label' => t('Apply a percentage coupon to specified Product'),
+//        'parameter' => array(
+//            'line_item' => array(
+//                'type' => 'commerce_line_item',
+//                'label' => t('Line item'),
+//            ),
+//            'coupon' => array(
+//                'type' => 'commerce_coupon',
+//                'label' => t('Coupon'),
+//            ),
+//            'component_name' => array(
+//                'type' => 'text',
+//                'label' => t('Price component type'),
+//                'description' => t('Price components track changes to prices made during the price calculation process, and they are carried over from the unit price to the total price of a line item. When an order total is calculated, it combines all the components of every line item on the order. When the unit price is altered by this action, the selected type of price component will be added to its data array and reflected in the order total display when it is formatted with components showing. Defaults to base price, which displays as the order Subtotal.'),
+//                'options list' => 'commerce_price_component_titles',
+//                'default value' => 'base_price',
+//            ),
+//            'round_mode' => array(
+//                'type' => 'integer',
+//                'label' => t('Price rounding mode'),
+//                'description' => t('Round the resulting price amount after performing this operation.'),
+//                'options list' => 'commerce_round_mode_options_list',
+//                'default value' => COMMERCE_ROUND_HALF_UP,
+//            ),
+//        ),
+//        'base' => 'alixxor_coupon_pct_apply_to_product',
+//        'group' => t('Commerce Coupon'),
+//    );
+//    
+//    $actions['alixxor_coupon_fixed_apply_to_product'] = array(
+//        'label' => t('Apply a fixed amount coupon to specified Product'),
+//        'parameter' => array(
+//            'line_item' => array(
+//                'type' => 'commerce_line_item',
+//                'label' => t('Line item'),
+//            ),
+//            'coupon' => array(
+//                'type' => 'commerce_coupon',
+//                'label' => t('Coupon'),
+//            ),
+//            'component_name' => array(
+//                'type' => 'text',
+//                'label' => t('Price component type'),
+//                'description' => t('Price components track changes to prices made during the price calculation process, and they are carried over from the unit price to the total price of a line item. When an order total is calculated, it combines all the components of every line item on the order. When the unit price is altered by this action, the selected type of price component will be added to its data array and reflected in the order total display when it is formatted with components showing. Defaults to base price, which displays as the order Subtotal.'),
+//                'options list' => 'commerce_price_component_titles',
+//                'default value' => 'base_price',
+//            ),
+//            'round_mode' => array(
+//                'type' => 'integer',
+//                'label' => t('Price rounding mode'),
+//                'description' => t('Round the resulting price amount after performing this operation.'),
+//                'options list' => 'commerce_round_mode_options_list',
+//                'default value' => COMMERCE_ROUND_HALF_UP,
+//            ),
+//            'sku' => array(
+//                'type' => 'text', 
+//                'label' => t('Product SKU'), 
+//                'description' => t('The SKU of the product.'),
+//              ), 
+//        ),
+//        'base' => 'alixxor_coupon_fixed_apply_to_product',
+//        'group' => t('Commerce Coupon'),
+//    );
+//    
+//
+//    return $actions;
+//}
+//
+//function alixxor_coupon_pct_apply_to_product($line_item, $coupon, $component_name, $round_mode, $sku) {
+//    
+//}
+//
+//
+//function alixxor_coupon_fixed_apply_to_product($line_item, $coupon, $component_name, $round_mode, $sku) {
+//    $coupon_wrapper = entity_metadata_wrapper('commerce_coupon', $coupon);
+//    $fields = $coupon_wrapper->getPropertyInfo();
+//    // Apply the coupon just if it's active, the type is of pct and it has the
+//    // field for percentage set.
+//    if ($coupon->is_active == TRUE && $coupon->type == 'deluxe_unit_fixed' && isset($fields['commerce_coupon_fixed_amount']) && $coupon_wrapper->commerce_coupon_fixed_amount->value() > 0) {
+//
+//        $product_id = $line_item->commerce_product[LANGUAGE_NONE][0]['product_id'];
+//        $product_qty = $line_item->quantity;
+//        $product = commerce_product_load($product_id);
+//        if ($product->sku == $sku) {
+//            $discount = $coupon_wrapper->commerce_coupon_fixed_amount->value();
+//
+//            // Get the price component to use in this price.
+//            $price_component_name = $coupon_wrapper->price_component_name->value();
+//
+//            $wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
+//            $unit_price = commerce_price_wrapper_value($wrapper, 'commerce_unit_price', TRUE);
+//            $amount = commerce_round($round_mode, $discount['amount']);
+//
+//            // Calculate the updated amount and create a price array representing the
+//            // difference between it and the current amount.
+//            $current_amount = $unit_price['amount'];
+//            $updated_amount = commerce_round($round_mode, $current_amount - $amount);
+//
+//            $difference = array(
+//                'amount' => $updated_amount - $current_amount,
+//                'currency_code' => $unit_price['currency_code'],
+//                'data' => array(),
+//            );
+//
+//            // Set the amount of the unit price and add the difference as a component.
+//            $wrapper->commerce_unit_price->amount = $updated_amount;
+//
+//            $wrapper->commerce_unit_price->data = commerce_price_component_add(
+//                    $wrapper->commerce_unit_price->value(), $price_component_name, $difference, TRUE
+//            );
+//        }
+//    }
+//}
+//
+//function alixxor_coupon_fixed_apply_to_basic($line_item, $coupon, $component_name, $round_mode) {
+//    
+//}
+//
+//
+///**
+// * Implements hook_commerce_coupon_granted_amount_alter().
+// *
+// * Gets the right amount value to display it in the coupon "log" view.
+// */
+//function alixxor_utils_commerce_coupon_granted_amount_alter(&$amount, $coupon, $order) {
+//  // Get the price component.
+//  if ($coupon->type == 'deluxe_unit_fixed') {
+//    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+//    $coupon_wrapper = entity_metadata_wrapper('commerce_coupon', $coupon);
+//
+//    $amount = 0;
+//    $components = commerce_price_component_load($order_wrapper->commerce_order_total->value(), $coupon_wrapper->price_component_name->value());
+//    foreach ($components as $component) {
+//      $amount += $component['price']['amount'] * -1;
+//    }
+//
+//    $amount = commerce_currency_format($amount, $order_wrapper->commerce_order_total->currency_code->value(), $coupon);
+//  }
+//}
+

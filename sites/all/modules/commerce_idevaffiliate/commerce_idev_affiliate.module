@@ -1,0 +1,121 @@
+<?php
+
+/**
+ * @file
+ * Implements iDevAffiliate tracking for use with Drupal Commerce.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function commerce_idev_affiliate_menu() {
+  $items = array();
+  $items['admin/config/system/idev-affiliate-mapping/add'] = array(
+    'title' => 'iDevAffiliate Product mapping',
+    'description' => 'A form to map Product SKU with iDevAffiliate Product ID.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_idev_affiliate_add_form'),
+    'access arguments' => array('access administration pages'),
+    'file' => 'commerce_idev_affiliate.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/idev-affiliate-mapping/delete/%'] = array(
+    'title' => 'Mapping',
+    'description' => 'A form to map Product SKU with iDevAffiliate Product ID.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_idev_affiliate_delete_form', 3),
+    'access arguments' => array('access administration pages'),
+    'file' => 'commerce_idev_affiliate.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/idev-affiliate-mapping/export'] = array(
+    'title' => 'Export iDevAffiliate Product Mapping',
+    'description' => 'A form to export mapping of Product SKU with iDevAffiliate Product ID.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_idev_affiliate_export_form'),
+    'access arguments' => array('access administration pages'),
+    'file' => 'commerce_idev_affiliate.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/idev-affiliate-mapping/import'] = array(
+    'title' => 'Import iDevAffiliate Product Mapping',
+    'description' => 'A form to import mapping of Product SKU with iDevAffiliate Product ID.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_idev_affiliate_import_form'),
+    'access arguments' => array('access administration pages'),
+    'file' => 'commerce_idev_affiliate.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_init().
+ */
+function commerce_idev_affiliate_init() {
+  drupal_add_css(drupal_get_path('module', 'commerce_idev_affiliate') . '/css/commerce_idev_affiliate.css');
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function commerce_idev_affiliate_commerce_checkout_complete($order) {
+  $line_items = $order->commerce_line_items[LANGUAGE_NONE];
+  $mapped_products = '';
+  foreach ($line_items as $line_item) {
+    $line_item = commerce_line_item_load($line_item['line_item_id']);
+    $product_id = $line_item->commerce_product[LANGUAGE_NONE][0]['product_id'];
+    $product = commerce_product_load($product_id);
+    $commerce_sku = $product->sku;
+    $mapping = commerce_idev_affiliate_get_field_mapping($commerce_sku);
+    if ($mapping) {
+      $mapped_products .= $mapping['product_id'] . '|';
+    }
+  }
+  $mapped_products = rtrim($mapped_products, "|");
+
+  // TODO : Get coupon code if applied in order.
+  $coupon_code = NULL;
+
+  if ('' != $mapped_products) {
+    $order_id = $order->order_id;
+    $idev_affiliate_profile_id = variable_get('commerce_idev_affiliate_profile_id', '');
+
+    // Prepare tracking URL.
+    $pixel_tracking_url = 'https://www.idevaffiliate.com/sale.php?profile=' . $idev_affiliate_profile_id;
+    $pixel_tracking_url .= '&products_purchased=' . $product_code;
+    $pixel_tracking_url .= '&idev_ordernum=' . $order_id;
+    if ($coupon_code) {
+      $pixel_tracking_url .= '&coupon_code=' . $coupon_code;
+    }
+
+    // Send HTTP request to pixel tracking URL.
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $pixel_tracking_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+    curl_exec($ch);
+    curl_close($ch);
+  }
+}
+
+/**
+ * Helper functions to get mapping details for corresponding id.
+ *
+ * @param string $commerce_sku
+ *   SKU for commerce product.
+ *
+ * @return array
+ *   Field mapping array
+ */
+function commerce_idev_affiliate_get_field_mapping($commerce_sku) {
+  $mapping_details = db_select('idev_affiliate', 'i')
+      ->fields('i', array('id', 'product_id'))
+      ->condition('commerce_sku', $commerce_sku, '=')
+      ->execute();
+  $mapping = array();
+  foreach ($mapping_details as $mapping_detail) {
+    $mapping['id'] = $mapping_detail->id;
+    $mapping['product_id'] = $mapping_detail->product_id;
+  }
+  return $mapping;
+}

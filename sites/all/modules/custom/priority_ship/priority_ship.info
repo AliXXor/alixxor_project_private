@@ -1,0 +1,4 @@
+name = Priority Ship table module
+description = Priority Shipping table module.
+package = Custom
+core = 7.x

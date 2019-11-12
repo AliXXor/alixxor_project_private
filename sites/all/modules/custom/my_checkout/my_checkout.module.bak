@@ -1,0 +1,318 @@
+<?php
+/**
+ * Implements hook_commerce_checkout_pane_info()
+ */
+function my_checkout_commerce_checkout_pane_info() {
+  $panes['my_checkout'] = array(
+    'title' => t('Shipping method'),
+    'page' => 'checkout',
+    'weight' => -20,
+    'base' => 'my_checkout_pane',
+  );
+  return $panes;
+}
+/**
+ * Implements base_checkout_form()
+ */
+function my_checkout_pane_checkout_form($form, $form_state, $checkout_pane, $order) {
+  $checkout_form['my_module_pane_field2'] = array(
+    '#type' => 'radios',
+    '#title' => t('Please select shipping method:'),
+    '#description' => '',
+    '#options' => array('standard_shipping' => 'Standard airmail/courier, 6-10 days','priority_shipping' =>'Priority shipping, 4-6 days'),
+    '#default_value' => isset($order->field_shipping_method['und'])?$order->field_shipping_method['und'][0]['value']:'standard_shipping',
+    '#required' => TRUE,
+  );
+  return $checkout_form;
+}
+/**
+ * Implements hook_pane_checkout_form_validate().
+ */
+function my_checkout_pane_checkout_form_validate($form, &$form_state, $checkout_pane, $order) {
+  if(empty($form_state['values']['my_checkout']['my_module_pane_field2'])){
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Implements hook_pane_checkout_form_submit().
+ */
+ function my_checkout_pane_checkout_form_submit($form, &$form_state, $checkout_pane, $order) {
+   $order->field_shipping_method[LANGUAGE_NONE][0]['value'] = $form_state['values']['my_checkout']['my_module_pane_field2'];
+   commerce_order_save($order);
+ }
+
+
+ /**
+ * Implements hook_commerce_shipping_method_info().
+ */
+function my_checkout_commerce_shipping_method_info() {
+  $shipping_methods = array();
+
+  $shipping_methods['alixxor_shipping_method'] = array(
+    'title' => t('Shipping'),
+    'description' => t(''),
+  );
+
+  return $shipping_methods;
+}
+
+/**
+ * Implements hook_commerce_shipping_service_info().
+ */
+function my_checkout_commerce_shipping_service_info() {
+  $shipping_services = array();
+
+  $shipping_services['alixxor_shipping_service'] = array(
+    'title' => t('Shipping'),
+    'description' => t(''),
+    'display_title' => t('Shipping'),
+    'shipping_method' => 'alixxor_shipping_method',
+    'price_component' => 'shipping',
+    'callbacks' => array(
+      'rate' => 'alixxor_service_rate',
+      'details_form' => 'alixxor_service_details_form',
+      'details_form_validate' => 'alixxor_service_details_form_validate',
+      'details_form_submit' => 'alixxor_service_details_form_submit',
+    ),
+  );
+
+  return $shipping_services;
+}
+
+/**
+ * Shipping service callback: returns a base price array for a shipping service
+ * calculated for the given order.
+ */
+function alixxor_service_rate($shipping_service, $order) {
+
+  $standard_ship = array();
+  $priority_ship = array();
+  $profile_obj = commerce_customer_profile_load($order->commerce_customer_shipping['und'][0]['profile_id']);
+  $ship_zones = array('shipping_AUS', 'shipping_EA_NA_UC_EUR_SP', 'shipping_RW', 'shipping_NZ');
+  foreach($order->commerce_line_items['und'] as $line_item){
+    $line_item_obj = commerce_line_item_load($line_item['line_item_id']);
+    if($line_item_obj->type == 'product'){
+      $product_obj = commerce_product_load($line_item_obj->commerce_product['und'][0]['product_id']);
+
+      //print "<pre>"; print_r($product_obj); print "</pre>";
+      $delivery_country = $profile_obj->commerce_customer_address['und'][0]['country'];
+      $ship_zone = db_query("SELECT ship_zone FROM {ship_countries} WHERE country_iso_code_2 = '$delivery_country'")->fetchField();
+      //print "<pre>"; print_r($ship_zone); print "</pre>";
+      $standard_values =  db_query("SELECT * FROM {ship_items} WHERE name = :name", array(':name' => $product_obj->title))->fetchObject();
+      //print "<pre>"; print_r($standard_values); print "</pre>";
+      if(in_array($ship_zone, $ship_zones)) {
+        if(!is_null($standard_values->$ship_zone)){
+        $ship_cost_item[] = @$standard_values->$ship_zone;
+	}
+      }
+    }
+  }
+
+  print "<pre>"; print_r($ship_cost_item); print "</pre>";
+  rsort($ship_cost_item);
+  if(isset($ship_cost_item[1])){
+    $ship_cost = $ship_cost_item[0] + (($ship_cost_item[1]*20)/100);
+  }else{
+    $ship_cost = $ship_cost_item[0];
+  }
+
+  print "<pre>"; print_r($ship_cost); print "</pre>";
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  return array(
+    'amount' => $ship_cost*100,
+    'currency_code' => $order_wrapper->commerce_order_total->currency_code->value(),
+    'data' => array(),
+  );
+}
+
+/**
+ * Shipping service callback: returns the example shipping service details form.
+ */
+function alixxor_service_details_form($pane_form, $pane_values, $checkout_pane, $order, $shipping_service) {
+  $form = array();
+
+  $pane_values['service_details'] += array(
+    'name' => '',
+    'express' => '',
+  );
+}
+
+function _shipping_cost_priority($order) {
+    $ship_cost = 0;
+
+    $delivery_country = $order->delivery_country;
+    $ship_zone = db_result(db_query("SELECT ship_zone FROM {ship_countries} WHERE country_id = '$delivery_country'"));
+    $items = $order->products;
+
+    foreach($items as $item) {
+        $ship_cost_item = 0;
+        $ship_zones = array('shipping_AUS', 'shipping_EA_NA_UC_EUR_SP', 'shipping_RW', 'shipping_NZ');
+        if (in_array($ship_zone, $ship_zones)) {
+            $ship_cost_item = db_result(db_query("SELECT {$ship_zone} FROM {priority_ship_items} WHERE name = '$item->title'"));
+        }
+
+        $ship_cost += $ship_cost_item * $item->qty;
+    }
+
+    return $ship_cost;
+}
+
+function _shipping_cost_standart($order) {
+    $ship_cost = 0;
+    $max_ship_cost = 0;
+
+    $delivery_country = $order->delivery_country;
+    $ship_zone = db_result(db_query("SELECT ship_zone FROM {ship_countries} WHERE country_id = '$delivery_country'"));
+    $items = $order->products;
+
+    foreach($items as $item) {
+        $ship_cost_item = 0;
+        $ship_zones = array('shipping_AUS', 'shipping_EA_NA_UC_EUR_SP', 'shipping_RW', 'shipping_NZ');
+        if (in_array($ship_zone, $ship_zones)) {
+            $ship_cost_item = db_result(db_query("SELECT {$ship_zone} FROM {ship_items} WHERE name = '$item->title'"));
+        }
+
+       $ship_cost_item_2 = 0.5 * $ship_cost_item;
+        if($item->nid == 29) {
+            switch($ship_zone) {
+                case 'shipping_NZ':
+                    $ship_cost_item_2 = 0;
+                    break;
+                case 'shipping_AUS':
+                    $ship_cost_item_2 = 37.5;
+                    break;
+                case 'shipping_EA_NA_UC_EUR_SP':
+                    $ship_cost_item_2 = 75;
+                    break;
+                case 'shipping_RW':
+                    $ship_cost_item_2 = 67.5;
+                    break;
+                default:
+            }
+        } elseif ($item->nid == 28) {
+            switch($ship_zone) {
+                case 'shipping_NZ':
+                    $ship_cost_item_2 = 0;
+                    break;
+                case 'shipping_AUS':
+                    $ship_cost_item_2 = 30;
+                    break;
+                case 'shipping_EA_NA_UC_EUR_SP':
+                    $ship_cost_item_2 = 60;
+                    break;
+                case 'shipping_RW':
+                    $ship_cost_item_2 = 60;
+                    break;
+                default:
+            }
+        }
+        $ship_cost_arr[$item->nid] = array('0' => $ship_cost_item,'1' => $ship_cost_item_2, '2' => $item->qty);
+        if($ship_cost_item >= $max_ship_cost)
+        {
+            $max_ship_cost = $ship_cost_item;
+            $coef_max_ship_cost = $item->nid;
+        }
+    }
+
+    foreach($ship_cost_arr as $coef => $value) {
+        if($coef == $coef_max_ship_cost) {
+            $add = $value['0'] + $value['1'] * ($value['2'] - 1);
+        } else {
+            $add = $value['1'] * $value['2'];
+        }
+        $ship_cost = $ship_cost + $add;
+    }
+
+    return $ship_cost;
+}
+
+
+function _shipping_methods() {
+    return array('standart_shipping', 'priority_shipping');
+}
+
+function _shipping_tids() {
+    // tid 1  - Deluxe Unit
+    // tid 41 - Basic Unit
+    // tid 2  - Accessories
+    // tid 3  - Accessories for Energy Wellness Unit
+    // tid 4  - Vouchers
+    $items = uc_cart_get_contents();
+    $item_tids = array();
+    foreach ($items as $item) {
+        $node = node_load($item->nid);
+        if (is_array($node->taxonomy)) {
+            foreach ($node->taxonomy as $tid => $term) {
+                $item_tids[$tid] = $tid;
+            }
+        }
+    }
+
+    return $item_tids;
+}
+
+
+
+function get_shipping_method($order = null) {
+    if (!empty($_REQUEST['shipping_method'])) {
+        $method = $_REQUEST['shipping_method'];
+    } elseif (!empty($_SESSION['shipping_method'])) {
+        $method = $_SESSION['shipping_method'];
+    }
+
+    if (!$method || !shipping_access($method)) {
+        $method = 'standart_shipping';
+    }
+
+    $_SESSION['shipping_method'] = $method;
+    return $method;
+}
+
+function shipping_access($shipping_method) {
+    if ($shipping_method == 'standart_shipping') {
+        return true;
+    }
+    if ($shipping_method == 'priority_shipping') {
+        $item_tids = _shipping_tids();
+        if ( !empty($item_tids[1]) || !empty($item_tids[41]) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function shipping_exists($method = '') {
+    return in_array($method, _shipping_methods());
+}
+
+function shipping_title($shipping_method = '') {
+    if (!$shipping_method) {
+        $shipping_method = get_shipping_method();
+    }
+    if ($shipping_method == 'priority_shipping') {
+        return 'Priority shipping, 4-6 days';
+    }
+    if ($shipping_method == 'standart_shipping') {
+        return 'Standard airmail/courier, 6-10 days';
+    }
+
+    return '';
+}
+
+
+
+
+/**
+ * Implements hook_commerce_price_component_type_info().
+ */
+function my_checkout_commerce_price_component_type_info() {
+  return array(
+    'alixxor_shipping_service_express' => array(
+      'title' => t('Shipping'),
+      'weight' => 20,
+    ),
+  );
+}

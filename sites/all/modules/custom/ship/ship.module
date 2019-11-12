@@ -1,0 +1,228 @@
+<?php
+/**
+ * Implement hook_menu()
+ */
+
+ function ship_menu() {
+  $items = array();
+
+  $items['ship'] = array( 
+    'title' => 'Shipping',
+    'page callback' => 'ship_list',
+    'access arguments' => array('administer site configuration'),
+    'access callback' => TRUE
+  );
+
+  $items['ship/list'] = array( 
+   'title' => 'Shipping list',
+   'page callback' => 'ship_list',
+   'access arguments' => array('administer site configuration'),
+   'access callback' => TRUE,
+   'type' => MENU_DEFAULT_LOCAL_TASK,
+   'weight' => 1,
+  );
+  
+  $items['ship/add'] = array(
+   'title' => 'Add item',
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('ship_form'),
+   'access arguments' => array('administer site configuration'),
+   'type' => MENU_LOCAL_TASK,
+   'weight' => 2,
+  );
+
+  $items['ship/%ship/edit'] = array(
+   'title' => 'Edit item',
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('ship_form', 1),
+   'access arguments' => array('administer site configuration'),
+   'type' =>  MENU_CALLBACK,
+  );
+
+   $items['ship/%ship/delete'] = array(
+   'title' => 'Delete item',
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('ship_delete_form', 1),
+   'access arguments' => array('administer site configuration'),
+   'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+  
+function ship_form($form, &$form_state ,$shipping = null){
+  
+ //$id = arg(1);
+ //print $id;
+ //$shipping = db_query('SELECT * FROM {ship_items} WHERE id = :id', array(':id' => $id))->fetchObject();
+ //$shipping_name = $shipping->name;
+ //print "<pre>"; print_r($shipping); print "</pre>";
+
+  $form['name'] = array(
+    '#title' => 'Item name',
+    '#description' => 'Product name (Must match the name product in the catalog)',
+    '#type' => 'textfield',
+    '#default_value' => $shipping ? $shipping->name : '',
+    '#required' => true, 
+  );
+ 
+  $form['method'] = array(
+    '#title' => 'Method',
+    '#description' => 'Delivery method',
+    '#type' => 'textfield',
+    '#default_value' => $shipping ? $shipping->method : '',
+    '#required' => true,
+    '#size' => '2',
+  );
+
+  $form['shipping_NZ'] = array(
+    '#title' => 'Shipping NZ',
+    '#description' => 'Shipping to New Zealand',
+    '#type' => 'textfield',
+    '#default_value' => $shipping ? $shipping->shipping_NZ : '',
+    '#required' => true,
+    '#size' => '5', 
+  ); 
+
+  $form['shipping_AUS'] = array(
+    '#title' => 'Shipping AUS',
+    '#description' => 'Shipping to Australia',
+    '#type' => 'textfield',
+    '#default_value' => $shipping ? $shipping->shipping_AUS : '',
+    '#required' => true,
+    '#size' => '5',
+  );
+     
+  $form['shipping_EA_NA_UC_EUR_SP'] = array(
+    '#title' => 'Shipping EA NA UC EUR SP',
+    '#description' => 'Shipping to New East Asia, North America, United Kingdom, Europe and South Pacific',
+    '#type' => 'textfield',
+    '#default_value' => $shipping ? $shipping->shipping_EA_NA_UC_EUR_SP : '',
+    '#required' => true,
+    '#size' => '5',
+  );
+
+  $form['shipping_RW'] = array(
+    '#title' => 'Shipping RW',
+    '#description' => 'Shipping to rest world',
+    '#type' => 'textfield',
+    '#default_value' => $shipping ? $shipping->shipping_RW : '',
+    '#required' => true,
+    '#size' => '5',
+  );  
+     
+ 
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => $shipping ? 'Save' : 'Add',
+  );
+
+   if ($shipping)
+    {
+        $form['id'] = array(
+            '#type' => 'value',
+            '#value' => $shipping->id,
+        );
+    }
+
+    return $form;
+ }
+
+
+function ship_form_submit($form, &$form_state)
+{
+    $shipping = array(
+        'name' => $form_state['values']['name'],
+        'method'  => $form_state['values']['method'],
+        'shipping_NZ' => $form_state['values']['shipping_NZ'],
+        'shipping_AUS' => $form_state['values']['shipping_AUS'],
+        'shipping_EA_NA_UC_EUR_SP' => $form_state['values']['shipping_EA_NA_UC_EUR_SP'],
+        'shipping_RW' => $form_state['values']['shipping_RW'],
+    );
+ 
+    // save
+    if (isset($form_state['values']['id']))
+    {
+        $shipping['id'] = $form_state['values']['id'];
+        drupal_write_record('ship_items', $shipping, 'id');
+        drupal_set_message('Item saved');
+    }
+    // add
+    else
+    {
+        drupal_write_record('ship_items', $shipping);
+        drupal_set_message('Item added');
+    }
+ 
+    drupal_goto('ship');
+}
+
+function ship_list()
+{   
+    $tableHeader = array('Item', 'Method', 'Shipping NZ', 'Shipping AUS', 'Shipping East Asia, Nth America,UK & Europe and South pacific', 'Shipping rest of world');
+    $tableData = array();
+    $products = db_query("SELECT * FROM {ship_items}")->fetchAll();
+
+    foreach ($products as $product)
+    {
+        $actions = array(
+            l('edit', 'ship/' . $product->id . '/edit'),
+            l('delete',       'ship/' . $product->id . '/delete'),
+            l('add', 'ship/add'),
+        );
+ 
+        $tableData[] = array($product->name, $product->method, $product->shipping_NZ."$", $product->shipping_AUS."$", $product->shipping_EA_NA_UC_EUR_SP."$", $product->shipping_RW."$", implode(' | ', $actions));
+    }
+
+    return theme('table', array('header' => $tableHeader, 'rows' => $tableData));
+}
+
+
+
+function ship_delete_form($form, &$form_state ,$shipping = null){
+  $form['id'] = array(
+    '#type' => 'hidden',
+    '#value' => $shipping->id,
+  );
+
+  $form['info'] = array(
+    '#type' => 'item',
+    '#markup' => '<p>This action cannot be undone.</p>',
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit', 
+    '#value' => t('Delete'), 
+  );
+
+  return $form;
+}
+
+function ship_delete_form_submit($form, &$form_state)
+{ 
+    db_query("DELETE FROM {ship_items} WHERE id = :id", array(':id' => $form_state['values']['id']));
+    drupal_set_message('Item deleted');
+    drupal_goto('ship');
+}
+
+/**
+ * Return information about item
+ */
+function ship_load($id)
+{
+    return db_query("SELECT * FROM {ship_items} WHERE id = :id", array(':id' => $id))->fetchObject();
+}
+
+function ship_form_alter($form, &$form_state, $form_id){
+	if($form_id == "commerce_order_ui_order_form"){
+		if(arg(4) == "edit"){
+			drupal_add_js('jQuery(document).ready(function () { 
+				jQuery(".field-name-commerce-unit-price select.form-select").each(function() {
+					var id = jQuery(this).attr("id");
+					jQuery("#"+id).attr("disabled", true);
+				});
+			});', 'inline');
+		}
+	}
+}

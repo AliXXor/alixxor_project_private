@@ -1,0 +1,53 @@
+/*jQuery(document).ready(function(){
+								
+								//alert ("test")
+    
+	jQuery("#block-menu-menu-left-menu h2.block-title").click(function(){
+        jQuery(this).parents('#block-menu-menu-left-menu').find('.content ul.menu').slideToggle();
+    });
+	
+	/**********************
+    function windowSize() {
+      var width = jQuery( window ).width();
+
+      if( width <= 767 ){
+		 jQuery('#block-menu-menu-left-menu h2.block-title').removeClass('mobile_click');
+         jQuery('#block-menu-menu-left-menu .content ul.menu').hide();
+      } else {
+		 jQuery('#block-menu-menu-left-menu h2.block-title').addClass('mobile_click');
+         jQuery('#block-menu-menu-left-menu .content ul.menu').show();
+      }
+    }
+    windowSize();
+    jQuery(window).resize(function(){
+       windowSize();
+    });
+ 
+});*/
+
+
+Drupal.behaviors.sidebarmenu = {
+  attach: function (context, settings) {
+	 
+	jQuery("#block-menu-menu-left-menu h2.block-title").click(function(){
+        jQuery(this).parents('#block-menu-menu-left-menu').find('.content ul.menu').slideToggle();
+    });
+	
+	/**********************/
+    function windowSize() {
+      var width = jQuery( window ).width();
+
+      if( width <= 767 ){
+		 jQuery('#block-menu-menu-left-menu h2.block-title').removeClass('mobile_click');
+         jQuery('#block-menu-menu-left-menu .content ul.menu').hide();
+      } else {
+		 jQuery('#block-menu-menu-left-menu h2.block-title').addClass('mobile_click');
+         jQuery('#block-menu-menu-left-menu .content ul.menu').show();
+      }
+    }
+    windowSize();
+    jQuery(window).resize(function(){
+       windowSize();
+    });
+  }
+};

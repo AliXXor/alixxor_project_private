@@ -1,0 +1,10 @@
+name = NZ Post Office Shipping
+description = Integrates shipping rates for NZ Post Office.
+package = Commerce (shipping)
+dependencies[] = commerce
+dependencies[] = commerce_shipping
+core = 7.x
+
+version = "7.x-1.0"
+core = "7.x"
+project = "alixxor"

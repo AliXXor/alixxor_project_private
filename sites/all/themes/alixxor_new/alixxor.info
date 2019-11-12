@@ -1,0 +1,53 @@
+name = 'Alixxor New'
+description = Uses the Bootstrap Framework Less source files and must be compiled (not for beginners).
+core = 7.x
+base theme = bootstrap
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Regions
+;;;;;;;;;;;;;;;;;;;;;
+
+
+regions[header] 			= 'Header'
+regions[header_bottom] 		= 'Header Bottom'
+regions[menu] 				= 'Menu'
+regions[user_menu] 			= 'User Menu'
+regions[help] 				= 'Help'
+
+regions[content] 			= 'Content'
+regions[content_bottom] 	= 'Content bottom'
+
+regions[sidebar_first] 		= 'Sidebar first'
+regions[sidebar_second] 	= 'Sidebar second'
+
+regions[footer] 			= 'Footer'
+
+regions[page_top] 			= 'Page top'
+regions[page_bottom] 		= 'Page bottom'
+regions[highlighted] 		= 'Highlighted'
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Stylesheets
+;;;;;;;;;;;;;;;;;;;;;
+
+stylesheets[all][] = css/style.css
+stylesheets[all][] = css/boilerplate.css
+stylesheets[all][] = css/less-style.css
+stylesheets[all][] = css/maintenance-page.css
+stylesheets[all][] = css/tablet.css
+stylesheets[all][] = css/mobile.css
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Scripts
+;;;;;;;;;;;;;;;;;;;;;
+
+scripts[] = 'js/modernizr-1.6.min.js'
+scripts[] = 'js/jquery.loader.js'
+scripts[] = 'js/html5.js'
+scripts[] = 'js/simple.js'
+scripts[] = 'js/theme700.core.js'
+
+; Disable the CDN provider so compiled source files can be used.
+settings[bootstrap_cdn] = ''
